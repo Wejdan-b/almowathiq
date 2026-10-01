@@ -31,3 +31,7 @@ uploads/
 # Python tooling
 .pytest_cache/
 .mypy_cache/
+
+# Local test files
+test.jpg
+test_*.py
