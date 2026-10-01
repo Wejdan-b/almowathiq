@@ -1,0 +1,28 @@
+# Android / IntelliJ
+.idea/
+.gradle/
+local.properties
+
+# Environment
+.env
+.env.*
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Temporary
+tmp/
+temp/
+
+# ChromaDB
+chroma_db/
+
+# Test uploads
+uploads/
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
