@@ -35,3 +35,4 @@ uploads/
 # Local test files
 test.jpg
 test_*.py
+ocr_output.txt
