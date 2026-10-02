@@ -36,3 +36,4 @@ uploads/
 test.jpg
 test_*.py
 ocr_output.txt
+classifier_output.txt
