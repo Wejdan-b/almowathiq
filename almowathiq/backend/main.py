@@ -1,5 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+
 from models.schemas import VerificationResponse
+from services.ocr import extract_text
+from services.classifier import classify_content
+from services.search import search
+from services.verifier import verify
 
 
 app = FastAPI(
@@ -14,87 +19,217 @@ def root():
     return {
         "project": "الموثّق الذكي",
         "status": "running",
-        "version": "0.1.0"
+        "version": "0.1.0",
     }
 
 
 @app.get("/health")
 def health():
     return {
-        "status": "ok"
+        "status": "ok",
     }
 
 
 @app.post(
     "/verify",
-    response_model=VerificationResponse
+    response_model=VerificationResponse,
 )
-async def verify(
-    image: UploadFile = File(...)
+async def verify_image(
+    image: UploadFile = File(...),
 ):
-    """
-    MVP Mock Endpoint
-
-    حاليا لا نستخدم Gemini.
-    نستقبل الصورة ونعيد نتيجة تجريبية
-    للتأكد من أن الـAPI والـFlutter قادران على التواصل.
-    """
-
     if not image.content_type:
         raise HTTPException(
             status_code=400,
-            detail="نوع الملف غير معروف"
+            detail="نوع الملف غير معروف",
         )
 
     allowed_types = {
         "image/jpeg",
         "image/png",
-        "image/webp"
+        "image/webp",
     }
 
     if image.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
-            detail="يسمح فقط بصور JPG أو PNG أو WEBP"
+            detail="يسمح فقط بصور JPG أو PNG أو WEBP",
         )
 
-    # نقرأ الصورة في الذاكرة فقط.
-    # لن نحفظها على القرص في هذه المرحلة.
     image_bytes = await image.read()
 
     if not image_bytes:
         raise HTTPException(
             status_code=400,
-            detail="الصورة فارغة"
+            detail="الصورة فارغة",
         )
 
-    # ==============================
-    # MOCK RESPONSE
-    # ==============================
+    try:
+        extracted = extract_text(
+            image_bytes,
+            image.content_type,
+        )
 
-    return VerificationResponse(
-        content_type="fatwa",
-        status="موثّق",
-        confidence=0.98,
+        extracted_text = extracted.get("text", "")
 
-        extracted_text=(
-            "هذا نص تجريبي مستخرج من الصورة."
-        ),
+        if not extracted_text:
+            return VerificationResponse(
+                content_type="unknown",
+                status="غير موثّق",
+                confidence=0.0,
+                extracted_text="",
+                correct_text=None,
+                missing_context=[],
+                explanation="لم نتمكن من استخراج نص واضح من الصورة.",
+                source=None,
+            )
 
-        correct_text=(
-            "هذا نص تجريبي يمثل النص الكامل من المصدر."
-        ),
+        classification = classify_content(
+            extracted_text
+        )
 
-        missing_context=[],
+        content_type = classification.get(
+            "content_type",
+            "unknown",
+        )
 
-        explanation=(
-            "هذه نتيجة تجريبية للتأكد من عمل الـAPI. "
-            "سيتم استبدالها لاحقًا بنتيجة Gemini + البحث الدلالي."
-        ),
+        if content_type not in {"hadith", "fatwa"}:
+            return VerificationResponse(
+                content_type="unknown",
+                status="غير موثّق",
+                confidence=0.0,
+                extracted_text=extracted_text,
+                correct_text=None,
+                missing_context=[],
+                explanation="لم نتمكن من تحديد نوع المحتوى للتحقق منه.",
+                source=None,
+            )
 
-        source={
-            "scholar": "DEMO DATA",
-            "title": "مصدر تجريبي — لا يمثل مصدرًا شرعيًا حقيقيًا",
-            "url": "https://example.com"
-        }
-    )
+        candidates = search(
+            extracted_text,
+            content_type,
+            top_k=5,
+        )
+
+        result = verify(
+            extracted_text,
+            content_type,
+            candidates,
+        )
+
+        matched_id = result.get("matched_id")
+        matched_candidate = None
+
+        for candidate in candidates:
+            if candidate.get("id") == matched_id:
+                matched_candidate = candidate
+                break
+
+        source = None
+
+        if matched_candidate:
+            record = matched_candidate.get("record") or {}
+            kind = matched_candidate.get("kind")
+            matched = matched_candidate.get("matched")
+
+            if kind == "fake_hadith":
+
+                if matched == "incorrect_hadith":
+                    source_data = (
+                        record.get("incorrect_hadith") or {}
+                    )
+                else:
+                    source_data = (
+                        record.get("correct_hadith") or {}
+                    )
+
+                source = {
+                    "scholar": source_data.get(
+                        "grader",
+                        "",
+                    ),
+                    "title": source_data.get(
+                        "source",
+                        "",
+                    ),
+                    "url": source_data.get(
+                        "reference_url",
+                        "",
+                    ),
+                }
+
+            elif kind == "hadith":
+
+                source = {
+                    "scholar": record.get(
+                        "grader",
+                        "",
+                    ),
+                    "title": record.get(
+                        "source",
+                        "",
+                    ),
+                    "url": record.get(
+                        "reference_url",
+                        "",
+                    ),
+                }
+
+            elif kind == "fatwa":
+
+                scholars = record.get(
+                    "scholars"
+                ) or []
+
+                if isinstance(scholars, list):
+                    scholar = ", ".join(
+                        str(item)
+                        for item in scholars
+                    )
+                else:
+                    scholar = str(scholars)
+
+                source = {
+                    "scholar": scholar,
+                    "title": record.get(
+                        "title",
+                        "",
+                    ),
+                    "url": record.get(
+                        "reference_url",
+                        "",
+                    ),
+                }
+
+        return VerificationResponse(
+            content_type=content_type,
+            status=result.get(
+                "status",
+                "غير موثّق",
+            ),
+            confidence=float(
+                result.get(
+                    "confidence",
+                    0.0,
+                )
+            ),
+            extracted_text=extracted_text,
+            correct_text=result.get(
+                "correct_text"
+            ),
+            missing_context=[],
+            explanation=result.get(
+                "explanation",
+                "",
+            ),
+            source=source,
+        )
+
+    except Exception as error:
+        print(
+            f"VERIFY ERROR: {type(error).__name__}: {error}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(error),
+        ) 

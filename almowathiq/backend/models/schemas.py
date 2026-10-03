@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 
 class Source(BaseModel):
-    scholar: str
-    title: str
-    url: str
+    scholar: str = ""
+    title: str = ""
+    url: str = ""
 
 
 class VerificationResponse(BaseModel):
@@ -20,10 +20,12 @@ class VerificationResponse(BaseModel):
 
     extracted_text: str
 
-    correct_text: str
+    correct_text: Optional[str] = None
 
-    missing_context: List[str]
+    missing_context: List[str] = Field(
+        default_factory=list
+    )
 
     explanation: str
 
-    source: Source
+    source: Optional[Source] = None 
