@@ -1,0 +1,150 @@
+[
+  {
+    "id": "HF0001",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "النظافة من الإيمان",
+
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "لا يصح",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url":"https://dorar.net/fake-hadith/17"
+    },
+
+    "correct_hadith": {
+      "text": "إن الله تعالى جميل يحب الجمال، ويحب معالي الأخلاق، ويكره سفسافها",
+
+      "narrator": "جابر بن عبدالله",
+      "source": "صحيح الجامع",
+      "number": "1743",
+      "grade": "صحيح",
+      "grader": "الألباني",
+      "grade_source": "صحيح الجامع",
+
+      "reference_url": "https://dorar.net/h/7RUOTQrW"
+    }
+  }
+,
+  {
+    "id": "HF0002",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "الساكت عن الحق شيطان أخرس",
+
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "ليس بحديث",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+
+      "reference_url": "https://dorar.net/fake-hadith/16"
+    },
+
+    "correct_hadith": {
+      "text": "لا يمنعن أحدكم مخافة الناس أن يقول بحق إذا علمه",
+
+      "narrator": "أبو سعيد الخدري",
+      "source": "الأمالي المطلقة",
+      "number": "163",
+      "grade": "صحيح إسناده على شرط مسلم",
+      "grader": "ابن حجر العسقلاني",
+      "grade_source": "الأمالي المطلقة",
+
+      "reference_url": "https://dorar.net/h/Rl2HesLI?osoul=1"
+    }
+  }
+,
+  {
+    "id": "HF0003",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "خير الأسماء ما عُبِّد وحُمِّد",
+
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "لا أصل له",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+
+      "reference_url": "https://dorar.net/fake-hadith/19"
+    },
+
+    "correct_hadith": {
+      "text": "أحب الأسماء إلى الله عبد الله، وعبد الرحمن",
+
+      "narrator": "عبدالله بن عمر",
+      "source": "صحيح أبي داود",
+      "number": "4949",
+      "grade": "صحيح",
+      "grader": "الألباني",
+      "grade_source": "صحيح أبي داود",
+
+      "reference_url": "https://dorar.net/h/tEYhpoyr?osoul=1"
+    }
+  }
+,
+  {
+    "id": "HF0004",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "إن الله لا ينظر إلى الصف الأعوج",
+
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "ليس بحديث",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+
+      "reference_url": "https://dorar.net/fake-hadith/22"
+    },
+
+    "correct_hadith": {
+      "text": "أقيموا الصف في الصلاة؛ فإن إقامة الصف من حسن الصلاة",
+
+      "narrator": "أبو هريرة",
+      "source": "صحيح مسلم",
+      "number": "435",
+      "grade": "صحيح",
+      "grader": "مسلم",
+      "grade_source": "صحيح مسلم",
+      "reference_url": "https://dorar.net/h/Hxio9gcI?osoul=1"
+    }
+  }
+,
+  {
+    "id": "HF0005",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "إذا أردت أمرًا فعليك بالتؤدة، حتى يريك الله منه مخرجًا",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "ضعيف",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url": "https://dorar.net/fake-hadith/31"
+    },
+
+    "correct_hadith": {
+      "text": "ما كان الرِّفقُ في شيءٍ قطُّ إلا زانه، ولا كان الخَرقُ في شيءٍ قطُّ إلا شانَه وإنَّ اللهَ رفيقٌ يحبُّ الرِّفقَ",
+      "narrator": "أنس بن مالك",
+      "source": "صحيح الترغيب",
+      "number": "2672",
+      "grade": "حسن صحيح",
+      "grader": "الألباني",
+      "grade_source": "صحيح الترغيب",
+      "reference_url": "https://dorar.net/h/XPsPEJfa?osoul=1"
+    }
+  }
+]
