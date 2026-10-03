@@ -1,5 +1,7 @@
 """
-البحث المحلي في قاعدة المعرفة (الجزء اللفظي من الـHybrid Retrieval).
+البحث الهجين في قاعدة المعرفة (Hybrid Retrieval):
+  - لفظي: تطابق الحروف والكلمات (هذا الملف)
+  - دلالي: Embeddings + FAISS (services/embeddings.py)
 
 1) توحيد النص العربي: التشكيل، والهمزات، والتاء المربوطة، والأرقام، والرموز.
 2) درجة تطابق لفظي من 0 إلى 1:
@@ -13,8 +15,11 @@
 الدرجة هنا "درجة تشابه نصي" فقط، وليست حكمًا. الحكم في مرحلة التحقق.
 """
 
+import logging
 import re
 from functools import lru_cache
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------
 # 1) توحيد النص العربي
@@ -132,22 +137,75 @@ def _default_index() -> dict:
     )
 
 
-def search(text: str, content_type: str, top_k: int = 5, index: dict = None) -> list:
+# ---------------------------------------------------------------
+# 4) الجزء الدلالي
+# ---------------------------------------------------------------
+# الـcosine الخام من نماذج الـEmbeddings نادرًا ما يكون قريبًا من 0 حتى للنصوص
+# غير المرتبطة، لذلك نحوّله إلى مقياس 0..1 بين حدين (قابلين للمعايرة).
+SEMANTIC_LOW = 0.55   # أقل من هذا = لا علاقة
+SEMANTIC_HIGH = 0.90  # أعلى من هذا = نفس المعنى تقريبًا
+
+_semantic_indexes = {}
+
+
+def _semantic_index(content_type: str, entries: list):
+    key = (content_type, id(entries))
+    if key not in _semantic_indexes:
+        from services.embeddings import build_index
+        _semantic_indexes[key] = build_index(content_type, [e["text"] for e in entries])
+    return _semantic_indexes[key]
+
+
+def _semantic_scores(text: str, content_type: str, entries: list) -> dict:
+    """يرجع {position: cosine} لكل المداخل، أو {} إذا تعذّر البحث الدلالي."""
+    try:
+        from services.embeddings import embed_texts
+        index = _semantic_index(content_type, entries)
+        query_vec = embed_texts([text])[0]
+        return dict(index.search(query_vec, k=len(entries)))
+    except Exception as e:  # لا نكسر البحث: نرجع للبحث اللفظي فقط
+        logger.warning("Semantic search unavailable, lexical only: %s", e)
+        return {}
+
+
+def _normalize_semantic(cosine: float) -> float:
+    x = (cosine - SEMANTIC_LOW) / (SEMANTIC_HIGH - SEMANTIC_LOW)
+    return round(max(0.0, min(1.0, x)), 4)
+
+
+def search(text: str, content_type: str, top_k: int = 5, index: dict = None,
+           use_semantic: bool = True) -> list:
     """
-    يرجع أفضل top_k مرشحين: [{id, kind, matched, score, record}, ...]
-    unknown أو نص فارغ -> قائمة فارغة (لا نفرض بحثًا دينيًا).
+    يرجع أفضل top_k مرشحين:
+    [{id, kind, matched, score, lexical_score, semantic_score, record}, ...]
+
+    - lexical_score : كم من نص الصورة موجود حرفيًا في المصدر (0..1)
+    - semantic_score: قرب المعنى بعد المعايرة (0..1)، أو None إن تعذّر
+    - score         : للترتيب = الأعلى بين الاثنين
+
+    unknown أو نص فارغ -> قائمة فارغة.
     """
     if content_type not in ("hadith", "fatwa") or not text or not text.strip():
         return []
     entries = (index or _default_index())[content_type]
 
+    semantic = _semantic_scores(text, content_type, entries) if use_semantic else {}
+
     best = {}
-    for e in entries:
-        score = lexical_score(text, e["text"])
+    for pos, e in enumerate(entries):
+        lex = lexical_score(text, e["text"])
+        sem = _normalize_semantic(semantic[pos]) if pos in semantic else None
+        score = max(lex, sem) if sem is not None else lex
         key = (e["id"], e["matched"])
         if key not in best or score > best[key]["score"]:
-            best[key] = {"id": e["id"], "kind": e["kind"], "matched": e["matched"],
-                         "score": score, "record": e["record"]}
+            best[key] = {
+                "id": e["id"], "kind": e["kind"], "matched": e["matched"],
+                "score": round(score, 4),
+                "lexical_score": lex,
+                "semantic_score": sem,
+                "cosine": round(semantic[pos], 4) if pos in semantic else None,
+                "record": e["record"],
+            }
 
     results = sorted(best.values(), key=lambda r: r["score"], reverse=True)
     return results[:top_k]
