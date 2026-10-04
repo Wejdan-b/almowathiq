@@ -14,7 +14,7 @@ from typing import Optional
 from google.genai import types
 from pydantic import BaseModel, ValidationError
 
-from services.gemini_client import get_client, GEMINI_MODEL
+from services.gemini_client import generate_content, GEMINI_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +77,7 @@ def classify_content(text: str, model: Optional[str] = None) -> dict:
     start = time.perf_counter()
 
     try:
-        client = get_client()
-        response = client.models.generate_content(
+        response = generate_content(
             model=model or GEMINI_MODEL,
             contents=[CLASSIFIER_PROMPT, f"<text>\n{text.strip()}\n</text>"],
             config=types.GenerateContentConfig(

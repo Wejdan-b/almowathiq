@@ -1,10 +1,9 @@
-
 import time
 
 from google.genai import types
 from pydantic import BaseModel
 
-from services.gemini_client import get_client, GEMINI_MODEL
+from services.gemini_client import generate_content, GEMINI_MODEL
 
 
 class OCRResult(BaseModel):
@@ -29,10 +28,8 @@ Rules:
 
 def extract_text(image_bytes: bytes, mime_type: str) -> dict:
     """يستخرج النص العربي من الصورة كما هو، بدون تصحيح أو إكمال."""
-    client = get_client()
-
     start = time.perf_counter()
-    response = client.models.generate_content(
+    response = generate_content(
         model=GEMINI_MODEL,
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type=mime_type),

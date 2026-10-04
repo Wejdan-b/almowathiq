@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 from google.genai import types
 
-from services.gemini_client import get_client
+from services.gemini_client import get_client, with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +37,14 @@ except ImportError:
 
 
 def _embed_one_call(client, contents) -> list:
-    result = client.models.embed_content(
-        model=EMBED_MODEL,
-        contents=contents,
-        config=types.EmbedContentConfig(output_dimensionality=EMBED_DIM),
+    # إعادة محاولة فقط، بدون نموذج احتياطي: متجهات الفهرس يجب أن تكون من نفس النموذج
+    result = with_retry(
+        lambda: client.models.embed_content(
+            model=EMBED_MODEL,
+            contents=contents,
+            config=types.EmbedContentConfig(output_dimensionality=EMBED_DIM),
+        ),
+        label="embed",
     )
     return [e.values for e in result.embeddings]
 

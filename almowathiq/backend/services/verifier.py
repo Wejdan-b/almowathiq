@@ -3,7 +3,7 @@ import logging
 from google.genai import types
 from pydantic import BaseModel
 
-from services.gemini_client import get_client, GEMINI_MODEL
+from services.gemini_client import generate_content, GEMINI_MODEL
 
 
 logger = logging.getLogger(__name__)
@@ -147,9 +147,7 @@ def verify(extracted_text, content_type, candidates):
 
     try:
 
-        client = get_client()
-
-        response = client.models.generate_content(
+        response = generate_content(
             model=GEMINI_MODEL,
             contents=[
                 PROMPT,
