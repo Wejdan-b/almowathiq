@@ -39,8 +39,10 @@ CLASSIFIER_PROMPT = """You classify Arabic text by its FORM only. You never judg
 Categories:
 - hadith: text presented as a saying, action, or approval attributed to the Prophet Muhammad ﷺ.
   Signals: قال رسول الله ﷺ / عن النبي ﷺ / a chain of narrators / an attribution such as رواه البخاري أو مسلم.
-- fatwa: a religious ruling or answer given by a scholar or a fatwa body.
-  Signals: a question and answer about a ruling / "قال الشيخ ... : يجوز أو لا يجوز" / a reference to a fatwa collection.
+- fatwa: a statement of an Islamic legal ruling (حكم شرعي) about an act, with or without a named scholar.
+  Signals: ruling words such as يجوز / لا يجوز / يحرم / يجب / يسن / يستحب / يكره / مباح / حلال / حرام / يشترط,
+  a question and answer about a ruling, "قال الشيخ ...", or a reference to a fatwa collection.
+  A short ruling sentence with no scholar named (for example: "يحرم الكلام أثناء الوضوء") is still "fatwa".
 - unknown: everything else. Examples: Quran verses alone, general advice or reminders, du'a, poetry, stories, news,
   non-religious text, or text too short or ambiguous to classify with confidence.
 

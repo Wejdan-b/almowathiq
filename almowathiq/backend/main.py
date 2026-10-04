@@ -25,6 +25,71 @@ app.add_middleware(
 )
 
 
+def _text(value) -> str:
+    return "" if value is None else str(value)
+
+
+def build_source(candidate: dict) -> dict:
+    """يبني بيانات المصدر للعرض من السجل المطابق (بدون أي إضافة من خارجه)."""
+    record = candidate.get("record") or {}
+    kind = candidate.get("kind")
+    matched = candidate.get("matched")
+
+    if kind == "fake_hadith":
+        if matched == "incorrect_hadith":
+            data = record.get("incorrect_hadith") or {}
+            # حكم المصدر على الحديث المنتشر
+            return {
+                "scholar": _text(data.get("grade_source")),
+                "title": f"الحكم: {_text(data.get('grade'))}",
+                "url": _text(data.get("reference_url")),
+            }
+        data = record.get("correct_hadith") or {}
+        title = _text(data.get("source"))
+        if data.get("number"):
+            title += f" ({data.get('number')})"
+        return {
+            "scholar": _text(data.get("grader")),
+            "title": title,
+            "url": _text(data.get("reference_url")),
+            "narrator": _text(data.get("narrator")),
+            "grade": _text(data.get("grade")),
+        }
+
+    if kind == "hadith":
+        title = _text(record.get("source"))
+        if record.get("number"):
+            title += f" ({record.get('number')})"
+        return {
+            "scholar": _text(record.get("grader")),
+            "title": title,
+            "url": _text(record.get("reference_url")),
+            "narrator": _text(record.get("narrator")),
+            "grade": _text(record.get("grade")),
+        }
+
+    if kind == "fatwa":
+        references = []
+        for item in record.get("scholars") or []:
+            if isinstance(item, dict):
+                references.append({
+                    "name": _text(item.get("name")),
+                    "book": _text(item.get("book")),
+                    "page": _text(item.get("page")),
+                    "madhhab": _text(item.get("madhhab")),
+                    "note": _text(item.get("note")),
+                })
+        return {
+            "scholar": _text(record.get("mufti")),
+            "title": _text(record.get("source")),
+            "url": _text(record.get("reference_url")),
+            "references": references,
+        }
+
+    return None
+
+
+
 @app.get("/")
 def root():
     return {
@@ -102,10 +167,39 @@ async def verify_image(
             extracted_text
         )
 
+        if classification.get("error"):
+            # تعذر الاتصال بخدمة التصنيف: لا نقول للمستخدم إن المحتوى غير ديني
+            return VerificationResponse(
+                content_type="unknown",
+                status="غير موثّق",
+                confidence=0.0,
+                extracted_text=extracted_text,
+                correct_text=None,
+                missing_context=[],
+                explanation=(
+                    "تعذر إجراء التحقق حاليًا بسبب ضغط مؤقت "
+                    "في خدمة التحقق. يرجى المحاولة مرة أخرى."
+                ),
+                source=None,
+            )
+
         content_type = classification.get(
             "content_type",
             "unknown",
         )
+
+        if content_type not in {"hadith", "fatwa"}:
+            # شبكة أمان: قبل الاستسلام، نبحث في النوعين.
+            # إذا وُجد سجل مطابق بقوة، نكمل التحقق بنوعه حتى لا يضيع نص موجود عندنا.
+            best = None
+            for ctype in ("hadith", "fatwa"):
+                found = search(extracted_text, ctype, top_k=1)
+                if found and (best is None or found[0]["score"] > best[1]["score"]):
+                    best = (ctype, found[0])
+            if best and (
+                best[1].get("lexical_score", 0) >= 0.85 or best[1]["score"] >= 0.6
+            ):
+                content_type = best[0]
 
         if content_type not in {"hadith", "fatwa"}:
             return VerificationResponse(
@@ -136,97 +230,34 @@ async def verify_image(
             candidates,
         )
 
-        # 5. تحديد المصدر
+        # 5. تحديد المصدر (فقط إذا وُجد تطابق؛ "غير موثّق" بدون مصدر دائمًا)
+        status = result.get("status", "غير موثّق")
         matched_id = result.get("matched_id")
         matched_candidate = None
 
-        for candidate in candidates:
-            if candidate.get("id") == matched_id:
-                matched_candidate = candidate
-                break
+        if status != "غير موثّق":
+            for candidate in candidates:
+                if candidate.get("id") == matched_id:
+                    matched_candidate = candidate
+                    break
 
-        source = None
+        source = build_source(matched_candidate) if matched_candidate else None
 
-        if matched_candidate:
-            record = matched_candidate.get("record") or {}
-            kind = matched_candidate.get("kind")
-            matched = matched_candidate.get("matched")
-
-            if kind == "fake_hadith":
-
-                if matched == "incorrect_hadith":
-                    source_data = (
-                        record.get("incorrect_hadith") or {}
-                    )
-                else:
-                    source_data = (
-                        record.get("correct_hadith") or {}
-                    )
-
-                source = {
-                    "scholar": source_data.get(
-                        "grader",
-                        "",
-                    ),
-                    "title": source_data.get(
-                        "source",
-                        "",
-                    ),
-                    "url": source_data.get(
-                        "reference_url",
-                        "",
-                    ),
-                }
-
-            elif kind == "hadith":
-
-                source = {
-                    "scholar": record.get(
-                        "grader",
-                        "",
-                    ),
-                    "title": record.get(
-                        "source",
-                        "",
-                    ),
-                    "url": record.get(
-                        "reference_url",
-                        "",
-                    ),
-                }
-
-            elif kind == "fatwa":
-
-                scholars = record.get(
-                    "scholars"
-                ) or []
-
-                if isinstance(scholars, list):
-                    scholar = ", ".join(
-                        str(item)
-                        for item in scholars
-                    )
-                else:
-                    scholar = str(scholars)
-
-                source = {
-                    "scholar": scholar,
-                    "title": record.get(
-                        "title",
-                        "",
-                    ),
-                    "url": record.get(
-                        "reference_url",
-                        "",
-                    ),
-                }
+        # للحديث الذي لا يصح: نرسل أيضًا مصدر البديل الصحيح
+        alternative_source = None
+        if (
+            matched_candidate
+            and matched_candidate.get("kind") == "fake_hadith"
+            and result.get("issue") == "not_authentic"
+        ):
+            alternative_source = build_source(
+                {**matched_candidate, "matched": "correct_hadith"}
+            )
 
         return VerificationResponse(
             content_type=content_type,
-            status=result.get(
-                "status",
-                "غير موثّق",
-            ),
+            status=status,
+            issue=result.get("issue"),
             confidence=float(
                 result.get(
                     "confidence",
@@ -243,6 +274,7 @@ async def verify_image(
                 "",
             ),
             source=source,
+            alternative_source=alternative_source,
         )
 
     except Exception as error:

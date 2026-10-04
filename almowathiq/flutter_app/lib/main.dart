@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'services/api.dart';
 
@@ -684,8 +685,8 @@ class ResultPage extends StatelessWidget {
 
     final String displayStatus = status == 'موثّق'
         ? 'موثّق'
-        : status == 'يحتاج سياق' || status == 'محرّف أو مقتطع'
-        ? 'محرّف أو مقتطع'
+        : status == 'يحتاج سياق' || status == 'يحتاج تصحيح'
+        ? 'يحتاج تصحيح'
         : 'غير موثّق';
 
     final String extractedText = result['extracted_text']?.toString() ?? '';
@@ -694,7 +695,20 @@ class ResultPage extends StatelessWidget {
 
     final String explanation = result['explanation']?.toString() ?? '';
 
+    // سبب "يحتاج تصحيح": truncated / altered / not_authentic
+    final String issue = result['issue']?.toString() ?? '';
+
+    final List<String> issues = result['issues'] is List
+        ? (result['issues'] as List).map((e) => e.toString()).toList()
+        : <String>[];
+
+    final String correctTextTitle = issue == 'not_authentic'
+        ? 'البديل الصحيح'
+        : 'النص كما ورد في المصدر';
+
     final dynamic source = result['source'];
+
+    final dynamic alternativeSource = result['alternative_source'];
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -717,7 +731,7 @@ class ResultPage extends StatelessWidget {
             children: [
               _buildResultHeader(displayStatus),
               const SizedBox(height: 18),
-              _buildStatusCard(displayStatus),
+              _buildStatusCard(displayStatus, issue, issues),
               if (extractedText.isNotEmpty) ...[
                 const SizedBox(height: 18),
                 _buildTextSection(
@@ -729,7 +743,7 @@ class ResultPage extends StatelessWidget {
               if (correctText.isNotEmpty) ...[
                 const SizedBox(height: 18),
                 _buildTextSection(
-                  title: 'النص الصحيح',
+                  title: correctTextTitle,
                   text: correctText,
                   icon: Icons.fact_check_outlined,
                 ),
@@ -744,7 +758,19 @@ class ResultPage extends StatelessWidget {
               ],
               if (source is Map && source['scholar'] != null) ...[
                 const SizedBox(height: 18),
-                _buildSourceCard(context, source),
+                _buildSourceCard(
+                  context,
+                  source,
+                  heading: issue == 'not_authentic' ? 'حكم الحديث' : 'المصدر',
+                ),
+              ],
+              if (alternativeSource is Map) ...[
+                const SizedBox(height: 18),
+                _buildSourceCard(
+                  context,
+                  alternativeSource,
+                  heading: 'مصدر البديل الصحيح',
+                ),
               ],
               const SizedBox(height: 24),
               SizedBox(
@@ -777,7 +803,7 @@ class ResultPage extends StatelessWidget {
   Widget _buildResultHeader(String displayStatus) {
     final bool verified = displayStatus == 'موثّق';
 
-    final bool altered = displayStatus == 'محرّف أو مقتطع';
+    final bool altered = displayStatus == 'يحتاج تصحيح';
 
     IconData icon;
 
@@ -853,26 +879,57 @@ class ResultPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusCard(String status) {
+  Widget _buildStatusCard(String status, String issue, List<String> issues) {
     late String title;
     late String description;
     late IconData icon;
     late Color background;
 
     if (status == 'موثّق') {
-      title = 'صحيح، تم العثور على تطابق موثوق';
-
-      description =
-          'توجد مطابقة مع المصدر الموجود في قاعدة المعرفة المستخدمة للتحقق.';
+      if (issue == 'abridged') {
+        title = 'موثّق: النص مختصر من المصدر';
+        description =
+            'النص الظاهر في الصورة جزء من المصدر، والجزء المحذوف لا يغيّر الحكم. انظر النص كاملًا كما ورد في المصدر.';
+      } else {
+        title = 'موثّق: النص مطابق للمصدر';
+        description =
+            'توجد مطابقة مع المصدر الموجود في قاعدة المعرفة المستخدمة للتحقق.';
+      }
 
       icon = Icons.verified_outlined;
 
       background = const Color(0xFFE8F1EA);
-    } else if (status == 'محرّف أو مقتطع' || status == 'يحتاج سياق') {
-      title = 'محرّف أو مقتطع';
-
-      description =
-          'تم العثور على أصل للنص، لكن النص الظاهر في الصورة يختلف عن المصدر أو يفتقد جزءًا من سياقه.';
+    } else if (status == 'يحتاج تصحيح' || status == 'يحتاج سياق') {
+      if (issue == 'truncated') {
+        title = 'مقتطع من سياقه';
+        description =
+            'النص الظاهر في الصورة جزء من نص أطول، وحُذف منه ما يغيّر الحكم أو فهمه (مثل شرط أو استثناء أو تفصيل). انظر النص كاملًا كما ورد في المصدر.';
+      } else if (issue == 'altered') {
+        title = issues.contains('truncated') ? 'محرّف ومقتطع' : 'محرّف عن أصله';
+        description =
+            'وجدنا أصل النص، لكن الصورة فيها كلمات أو حكم أو نسبة تختلف عن المصدر.';
+        if (issues.contains('misattributed')) {
+          description += ' كما نُسب إلى غير قائله أو مصدره.';
+        }
+        if (issues.contains('truncated')) {
+          description += ' كما حُذف منه جزء من النص الأصلي.';
+        }
+      } else if (issue == 'misattributed') {
+        title = 'منسوب لغير قائله';
+        description =
+            'النص موجود في المصدر، لكن الصورة نسبته إلى راوٍ أو قائل أو كتاب أو عالم غير المذكور في المصدر.';
+        if (issues.contains('truncated')) {
+          description += ' كما حُذف منه جزء من النص الأصلي.';
+        }
+      } else if (issue == 'not_authentic') {
+        title = 'حديث لا يصح';
+        description =
+            'هذا النص مسجّل في المصدر ضمن الأحاديث المنتشرة التي لا تصح. وهذا بديل صحيح في معناه.';
+      } else {
+        title = 'يحتاج تصحيح';
+        description =
+            'تم العثور على أصل للنص، لكن النص الظاهر في الصورة يختلف عن المصدر أو يفتقد جزءًا من سياقه.';
+      }
 
       icon = Icons.info_outline;
 
@@ -967,12 +1024,87 @@ class ResultPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSourceCard(BuildContext context, Map source) {
+  Future<void> _openUrl(BuildContext context, String url) async {
+    final Uri? uri = Uri.tryParse(url);
+    final bool opened =
+        uri != null &&
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح رابط المصدر')),
+      );
+    }
+  }
+
+  Widget _buildReferenceLine(Map ref) {
+    final String name = ref['name']?.toString() ?? '';
+    final String book = ref['book']?.toString() ?? '';
+    final String page = ref['page']?.toString() ?? '';
+    final String madhhab = ref['madhhab']?.toString() ?? '';
+    final String note = ref['note']?.toString() ?? '';
+
+    final List<String> details = [
+      if (book.isNotEmpty) page.isNotEmpty ? '$book ($page)' : book,
+      if (madhhab.isNotEmpty) madhhab,
+      if (note.isNotEmpty) note,
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 7),
+            child: Icon(Icons.circle, size: 5, color: lightGold),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  if (name.isNotEmpty)
+                    TextSpan(
+                      text: name,
+                      style: const TextStyle(
+                        color: lightGold,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  if (name.isNotEmpty && details.isNotEmpty)
+                    const TextSpan(text: ' — '),
+                  TextSpan(text: details.join(' · ')),
+                ],
+              ),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.85),
+                fontSize: 13,
+                height: 1.6,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSourceCard(
+    BuildContext context,
+    Map source, {
+    String heading = 'المصدر',
+  }) {
     final String scholar = source['scholar']?.toString() ?? '';
 
     final String title = source['title']?.toString() ?? '';
 
     final String url = source['url']?.toString() ?? '';
+
+    final String narrator = source['narrator']?.toString() ?? '';
+
+    final String grade = source['grade']?.toString() ?? '';
+
+    final List<dynamic> references =
+        source['references'] is List ? source['references'] as List : [];
 
     return Container(
       decoration: BoxDecoration(
@@ -1011,9 +1143,9 @@ class ResultPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 11),
-                    const Text(
-                      'المصدر',
-                      style: TextStyle(
+                    Text(
+                      heading,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -1042,12 +1174,48 @@ class ResultPage extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (narrator.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    'الراوي: $narrator',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.85),
+                      fontSize: 13,
+                      height: 1.6,
+                    ),
+                  ),
+                ],
+                if (grade.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    scholar.isNotEmpty
+                        ? 'الدرجة: $grade (حكم $scholar)'
+                        : 'الدرجة: $grade',
+                    style: const TextStyle(
+                      color: lightGold,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      height: 1.6,
+                    ),
+                  ),
+                ],
+                if (references.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    'من العلماء المذكورين في المصدر:',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.70),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...references.whereType<Map>().map(_buildReferenceLine),
+                ],
                 if (url.isNotEmpty && url != 'https://example.com') ...[
                   const SizedBox(height: 15),
                   OutlinedButton.icon(
-                    onPressed: () {
-                      // سيتم ربطه بفتح المصدر الحقيقي لاحقًا
-                    },
+                    onPressed: () => _openUrl(context, url),
                     icon: const Icon(Icons.open_in_new, size: 17),
                     label: const Text('عرض المصدر'),
                     style: OutlinedButton.styleFrom(

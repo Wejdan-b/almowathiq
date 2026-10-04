@@ -19,7 +19,8 @@ Rules:
 3. Do NOT complete cut-off words or sentences, even if you recognize the text (for example a known hadith, verse, or fatwa). Write only what is visible.
 4. Do NOT add, paraphrase, translate, explain, summarize, or comment.
 5. Keep content attributions that appear in the image (for example: رواه البخاري, or a scholar's name).
-6. Ignore app interface elements that are not part of the content: clock, battery, like counts, share buttons.
+6. Ignore everything that is not part of the religious content itself: app interface elements (clock, battery, like counts, share buttons), account names, usernames, page or channel names, watermarks, logos, hashtags, and promotional text.
+   Keep attributions of the content to sources or scholars (for example: صحيح مسلم، رواه البخاري، قال الشيخ ...), because they are part of the claim being verified.
 7. Keep line order. Separate lines with a newline.
 8. If a specific word is unclear, write [غير واضح] in its place instead of guessing.
 9. If the image has no readable Arabic text, or is too blurry to read reliably, set is_readable to false and text to an empty string.
