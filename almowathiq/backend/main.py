@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from models.schemas import VerificationResponse
 from services.ocr import extract_text
@@ -11,6 +12,16 @@ app = FastAPI(
     title="الموثّق الذكي API",
     description="Backend for Al-Mowathiq hackathon MVP",
     version="0.1.0",
+)
+
+
+# السماح لتطبيق Flutter Web بالاتصال بالـ API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -64,6 +75,7 @@ async def verify_image(
         )
 
     try:
+        # 1. استخراج النص من الصورة
         extracted = extract_text(
             image_bytes,
             image.content_type,
@@ -79,10 +91,13 @@ async def verify_image(
                 extracted_text="",
                 correct_text=None,
                 missing_context=[],
-                explanation="لم نتمكن من استخراج نص واضح من الصورة.",
+                explanation=(
+                    "لم نتمكن من استخراج نص واضح من الصورة."
+                ),
                 source=None,
             )
 
+        # 2. تصنيف المحتوى
         classification = classify_content(
             extracted_text
         )
@@ -100,22 +115,28 @@ async def verify_image(
                 extracted_text=extracted_text,
                 correct_text=None,
                 missing_context=[],
-                explanation="لم نتمكن من تحديد نوع المحتوى للتحقق منه.",
+                explanation=(
+                    "لم نتمكن من تحديد نوع المحتوى "
+                    "للتحقق منه."
+                ),
                 source=None,
             )
 
+        # 3. البحث في قاعدة المعرفة
         candidates = search(
             extracted_text,
             content_type,
             top_k=5,
         )
 
+        # 4. التحقق من النص
         result = verify(
             extracted_text,
             content_type,
             candidates,
         )
 
+        # 5. تحديد المصدر
         matched_id = result.get("matched_id")
         matched_candidate = None
 
@@ -229,7 +250,17 @@ async def verify_image(
             f"VERIFY ERROR: {type(error).__name__}: {error}"
         )
 
-        raise HTTPException(
-            status_code=500,
-            detail=str(error),
+        return VerificationResponse(
+            content_type="unknown",
+            status="غير موثّق",
+            confidence=0.0,
+            extracted_text="",
+            correct_text=None,
+            missing_context=[],
+            explanation=(
+                "تعذر إجراء التحقق حاليًا بسبب ضغط أو "
+                "تعذر مؤقت في خدمة التحقق. "
+                "يرجى المحاولة مرة أخرى."
+            ),
+            source=None,
         ) 
