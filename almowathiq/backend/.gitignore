@@ -40,3 +40,4 @@ classifier_output.txt
 search_output.txt
 .cache/
 rag_output.txt
+verifier_output.txt
