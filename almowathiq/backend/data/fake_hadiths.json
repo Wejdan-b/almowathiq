@@ -148,7 +148,7 @@
     }
   },
   {
-    "id": "H0006",
+    "id": "HF0006",
     "type": "hadith",
 
     "incorrect_hadith": {
@@ -175,7 +175,7 @@
   }
   ,
   {
-    "id": "H0007",
+    "id": "HF0007",
     "type": "hadith",
 
     "incorrect_hadith": {
@@ -202,7 +202,7 @@
   }
   ,
   {
-    "id": "H0008",
+    "id": "HF0008",
     "type": "hadith",
 
     "incorrect_hadith": {
@@ -229,7 +229,7 @@
   }
   ,
   {
-    "id": "H0009",
+    "id": "HF0009",
     "type": "hadith",
 
     "incorrect_hadith": {
@@ -255,7 +255,7 @@
     }
   },
   {
-    "id": "H0010",
+    "id": "HF0010",
     "type": "hadith",
 
     "incorrect_hadith": {
@@ -282,7 +282,7 @@
   },
 
   {
-    "id": "H0011",
+    "id": "HF0011",
     "type": "hadith",
 
     "incorrect_hadith": {
@@ -309,7 +309,7 @@
   }
   ,
   {
-    "id": "H0012",
+    "id": "HF0012",
     "type": "hadith",
 
     "incorrect_hadith": {
@@ -336,34 +336,34 @@
   }
   ,
   {
-    "id": "H0012",
+    "id": "HF0013",
     "type": "hadith",
 
     "incorrect_hadith": {
-      "text": "سيد القوم خادمهم",
+      "text": "صلاة الفجر نور بالوجه، والظهر بركة بالرزق",
       "narrator": "",
       "source": "",
       "number": "",
-      "grade": "لا يصح",
+      "grade": "ليس له وجود في كتب الحديث",
       "grader": "",
       "grade_source": "الدرر السنية",
-       "reference_url": "https://dorar.net/fake-hadith/79"
+      "reference_url": "https://dorar.net/fake-hadith/80"
     },
 
     "correct_hadith": {
-      "text": "كَانَ رَسُولُ اللَّهِ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ يَتَخَلَّفُ عَنِ الْمَسِيرِ، فَيُزْجِي الضَّعِيفَ، وَيُرْدِفُ، وَيَدْعُو لَهُمْ.",
-      "narrator": "جابر بن عبدالله",
-      "source": "المستدرك على الصحيحين",
-      "number": "2577",
-      "grade": "صحيح على شرط مسلم",
-      "grader": "الحاكم",
-      "grade_source": "المستدرك على الصحيحين",
-      "reference_url": "https://dorar.net/fake-hadith/79?alts=1"
+      "text": "مَن صَلَّى الصُّبْحَ فَهو في ذِمَّةِ اللهِ، فلا يَطْلُبَنَّكُمُ اللهُ مِن ذِمَّتِهِ بشيءٍ، فيُدْرِكَهُ، فَيَكُبَّهُ في نَارِ جَهَنَّمَ.",
+      "narrator": "جندب بن عبدالله",
+      "source": "صحيح مسلم",
+      "number": "657",
+      "grade": "صحيح",
+      "grader": "مسلم",
+      "grade_source": "صحيح مسلم",
+      "reference_url": "https://dorar.net/fake-hadith/80?alts=1"
     }
   }
 ,
   {
-    "id": "H0014",
+    "id": "HF0014",
     "type": "hadith",
 
     "incorrect_hadith": {
@@ -390,7 +390,7 @@
   }
   ,
   {
-    "id": "H0015",
+    "id": "HF0015",
     "type": "hadith",
 
     "incorrect_hadith": {

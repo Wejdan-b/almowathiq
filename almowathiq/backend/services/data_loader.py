@@ -75,8 +75,9 @@ class ScholarRef(_Base):
 class Fatwa(_Base):
     id: str = Field(pattern=r"^F\d{4}$")
     type: Literal["fatwa"]
-    question: str = Field(min_length=5)
+    question: str = ""  # السؤال أو العنوان كما في الصفحة (اختياري: بعض المصادر بلا سؤال)
     text: str = Field(min_length=5)
+    evidence: str = ""  # الأدلة كما وردت في المصدر (للعرض فقط، لا تدخل في البحث)
     mufti: str = ""  # قد يكون فارغًا إذا كان الحكم من موسوعة وليس من مفتٍ بعينه
     source: str = Field(min_length=2)
     number: Optional[str] = None

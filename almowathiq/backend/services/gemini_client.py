@@ -4,6 +4,7 @@ import time
 
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 load_dotenv()
 
@@ -23,6 +24,9 @@ FALLBACK_MODELS = [
 RETRYABLE_CODES = {429, 500, 503, 504}
 RETRY_DELAYS = [1.0, 2.0]  # انتظار بين المحاولات (ثوانٍ)
 
+# حد زمني لكل طلب إلى Gemini، حتى لا يعلق التطبيق إذا تأخر الرد
+GEMINI_TIMEOUT_SECONDS = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "30"))
+
 _client = None
 
 
@@ -32,7 +36,10 @@ def get_client() -> genai.Client:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY غير موجود في ملف .env")
-        _client = genai.Client(api_key=api_key)
+        _client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_SECONDS * 1000),
+        )
     return _client
 
 
@@ -40,8 +47,18 @@ def is_retryable(error: Exception) -> bool:
     code = getattr(error, "code", None) or getattr(error, "status_code", None)
     if code in RETRYABLE_CODES:
         return True
+    # انقطاع الاتصال لحظيًا (شبكة) يستحق إعادة المحاولة أيضًا
+    if type(error).__name__ in {
+        "ReadError", "ConnectError", "RemoteProtocolError", "WriteError",
+        "ReadTimeout", "ConnectTimeout", "PoolTimeout", "ConnectionResetError",
+        "ConnectionError",
+    }:
+        return True
     text = str(error).upper()
-    return any(k in text for k in ("UNAVAILABLE", "RESOURCE_EXHAUSTED", "TIMEOUT", "TIMED OUT"))
+    return any(k in text for k in (
+        "UNAVAILABLE", "RESOURCE_EXHAUSTED", "TIMEOUT", "TIMED OUT",
+        "10054", "CONNECTION RESET", "FORCIBLY CLOSED", "CONNECTION ABORTED",
+    ))
 
 
 def with_retry(call, label: str = "gemini"):

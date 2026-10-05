@@ -120,7 +120,7 @@ def build_entries(hadiths: list, fatwas: list, fake_pairs: list) -> dict:
                                "text": p["correct_hadith"]["text"], "record": p})
     fatwa_entries = [
         {"id": f["id"], "kind": "fatwa", "matched": "text",
-         "text": f"{f['question']} {f['text']}", "record": f}
+         "text": f"{f.get('question') or ''} {f['text']}".strip(), "record": f}
         for f in fatwas
     ]
     return {"hadith": hadith_entries, "fatwa": fatwa_entries}

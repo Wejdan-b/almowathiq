@@ -1,4 +1,5 @@
 import logging
+import re
 from difflib import SequenceMatcher
 
 from google.genai import types
@@ -48,6 +49,9 @@ is_altered:
 true إذا تغيرت كلمات أو عبارات أو المعنى في النص نفسه.
 (النسبة إلى راوٍ أو كتاب أو عالم تُقيَّم في attribution_mismatch وليس هنا.)
 
+ملاحظة: الصورة قد تحتوي على سؤال أو عنوان قبل نص الفتوى.
+لا تعتبر وجود السؤال أو اختلافه عن سؤال المرشح تحريفًا ولا اقتطاعًا؛ قارن نص الفتوى نفسه فقط.
+
 attribution_mismatch:
 true إذا نسبت الصورة النص إلى قائل أو راوٍ أو كتاب أو عالم يخالف بيانات المرشح، مثل:
 - راوٍ مختلف (مثلًا "عن عائشة" والراوي في المرشح أنس بن مالك)،
@@ -69,7 +73,9 @@ confidence:
 درجة الثقة في المقارنة النصية فقط من 0 إلى 1.
 
 explanation:
-شرح قصير باللغة العربية.
+شرح قصير وواضح باللغة العربية موجّه للمستخدم العادي.
+ممنوع ذكر أسماء الحقول أو أي كلمة إنجليزية أو true/false أو كلمة "المرشح".
+سمِّ النص الموجود في قاعدة البيانات "المصدر".
 """
 
 
@@ -235,6 +241,32 @@ def verify(extracted_text, content_type, candidates):
 
     wrong_books = _book_mismatch()
 
+    # الجزء من الصورة الذي يقابل نص المصدر (يستبعد السؤال أو العنوان قبله وما بعده)
+    def _image_core():
+        src_w = normalize_arabic(candidate_text).split()
+        img_w = normalize_arabic(extracted_text).split()
+        def key(w):
+            if w.startswith("و") and len(w) > 3:
+                w = w[1:]
+            if len(w) > 3 and w[-1] in ("ه", "ا"):
+                w = w[:-1]
+            return w
+
+        blocks = [
+            b for b in SequenceMatcher(
+                None, [key(w) for w in src_w], [key(w) for w in img_w], autojunk=False
+            ).get_matching_blocks() if b.size
+        ]
+        if not blocks:
+            return extracted_text
+        start, end = blocks[0].b, blocks[-1].b + blocks[-1].size
+        # نُبقي كلمة النفي التي قبل الجزء المطابق مباشرة إن وجدت ("لا يحرم")
+        if start > 0 and img_w[start - 1] in {"لا", "ليس", "ليست", "لم", "لن", "غير"}:
+            start -= 1
+        return " ".join(img_w[start:end])
+
+    image_core = _image_core()
+
     # كلمات تقلب الحكم أو تغيّره: إذا اختلفت بين الصورة والمصدر فالنص محرّف
     # (التطابق الحرفي وحده لا يكشف حذف "لا" من "لا يحرم")
     def _ruling_words(text):
@@ -260,7 +292,7 @@ def verify(extracted_text, content_type, candidates):
                 result_map.setdefault(w, set()).add(i > 0 and words[i - 1] in negations)
         return result_map
 
-    _img_neg, _src_neg = _negation_map(extracted_text), _negation_map(candidate_text)
+    _img_neg, _src_neg = _negation_map(image_core), _negation_map(candidate_text)
     negation_flipped = any(
         verb in _src_neg and not (_img_neg[verb] & _src_neg[verb])
         for verb in _img_neg
@@ -272,26 +304,41 @@ def verify(extracted_text, content_type, candidates):
         for verb in _img_neg
     )
 
-    ruling_changed = negation_flipped or _ruling_words(extracted_text) != (
-        _ruling_words(candidate_text) & _ruling_words(extracted_text)
+    ruling_changed = negation_flipped or _ruling_words(image_core) != (
+        _ruling_words(candidate_text) & _ruling_words(image_core)
     ) or bool(
         # كلمة نفي/حكم في المصدر سقطت من الصورة رغم أن الصورة تغطي المصدر تقريبًا
-        text_containment(candidate_text, extracted_text) >= 0.8
-        and _ruling_words(candidate_text) - _ruling_words(extracted_text)
+        text_containment(candidate_text, image_core) >= 0.8
+        and _ruling_words(candidate_text) - _ruling_words(image_core)
     )
 
     # مقارنة كلمة بكلمة بين المصدر والصورة (داخل الجزء المنقول فقط)
     def _word_key(w):
         # "والمالكيه" و"المالكيه" نفس الكلمة: الواو الملتصقة لا تُعد تحريفًا
-        return w[1:] if w.startswith("و") and len(w) > 3 else w
+        if w.startswith("و") and len(w) > 3:
+            w = w[1:]
+        # فروق إملائية في آخر الكلمة لا تغيّر المعنى:
+        # التاء المربوطة ("المحد" و"المحده") وألف التنوين ("احدا" و"احد")
+        if len(w) > 3 and w[-1] in ("ه", "ا"):
+            w = w[:-1]
+        return w
+
+    def _tokens(text):
+        """كلمات النص: (الشكل الأصلي للعرض، الشكل الموحد للمقارنة)."""
+        pairs = []
+        for raw in (text or "").split():
+            display = raw.strip("،,.؛;:!؟?«»\"'()[]{}-ـ")
+            for norm in normalize_arabic(raw).split():
+                pairs.append((display or raw, norm))
+        return pairs
 
     def _inner_diff():
-        src_words = normalize_arabic(candidate_text).split()
-        img_words = normalize_arabic(extracted_text).split()
+        src = _tokens(candidate_text)
+        img = _tokens(extracted_text)
         sm = SequenceMatcher(
             None,
-            [_word_key(w) for w in src_words],
-            [_word_key(w) for w in img_words],
+            [_word_key(n) for _, n in src],
+            [_word_key(n) for _, n in img],
             autojunk=False,
         )
         ops = sm.get_opcodes()
@@ -299,21 +346,62 @@ def verify(extracted_text, content_type, candidates):
         removed, added = [], []
         if not equal:
             return removed, added
-        # نطاق الجزء المنقول في الصورة: من أول تطابق إلى آخر تطابق
         first_src, last_src = equal[0][1], equal[-1][2]
         first_img, last_img = equal[0][3], equal[-1][4]
+
+        def _phrase(pairs):
+            words = []
+            for display, _ in pairs:
+                if not words or words[-1] != display:  # ﷺ تتحول لعدة كلمات: نعرضها مرة
+                    words.append(display)
+            return " ".join(words)
+
         for tag, i1, i2, j1, j2 in ops:
             if tag == "equal":
                 continue
-            inside_src = i1 >= first_src and i2 <= last_src
-            inside_img = j1 >= first_img and j2 <= last_img
-            if tag in ("delete", "replace") and inside_src and inside_img:
-                removed.extend(src_words[i1:i2])
-            if tag in ("insert", "replace") and inside_src and inside_img:
-                added.extend(img_words[j1:j2])
-        return removed, added
+            inside = i1 >= first_src and i2 <= last_src and j1 >= first_img and j2 <= last_img
+            if not inside:
+                continue
+            if tag in ("delete", "replace"):
+                removed.append(_phrase(src[i1:i2]))
+            if tag in ("insert", "replace"):
+                added.append(_phrase(img[j1:j2]))
+        return [r for r in removed if r], [a for a in added if a]
 
     removed_words, added_words = _inner_diff()
+
+    # كلمات "النسبة": بيان من قال بالحكم (مذاهب، علماء، إجماع...) وليست الحكم نفسه
+    _attribution_vocab = {
+        "نص", "عليه", "الحنفيه", "المالكيه", "الشافعيه", "الحنابله", "مذهب", "المذاهب",
+        "الفقهيه", "الاربعه", "باتفاق", "اتفاق", "قول", "اختاره", "اختارها", "به", "افتت",
+        "صدرت", "فتوي", "اللجنه", "الدائمه", "عامه", "اكثر", "اهل", "العلم", "حكي",
+        "الاجماع", "اجماع", "قد", "ذكر", "فقهاء", "ابن", "باز", "عثيمين", "حزم", "تيميه",
+        "القيم", "ذلك", "هذا", "هو", "علي", "للحنفيه", "للمالكيه", "للشافعيه", "للحنابله",
+        "المنصوص", "عن", "احمد", "ظاهر", "اختيار",
+        "وهو", "وبه", "وقد", "الدايمه",
+    }
+    for _ref in (record.get("scholars") or []):
+        _name = _ref.get("name", "") if isinstance(_ref, dict) else str(_ref)
+        _attribution_vocab.update(_word_key(w) for w in normalize_arabic(_name).split())
+    _filler = {"ذلك", "هذا", "هو", "وهو"}
+
+    def _phrase_keys(phrase):
+        return [_word_key(w) for w in normalize_arabic(phrase).split()]
+
+    def _is_attribution(phrase):
+        keys = _phrase_keys(phrase)
+        return bool(keys) and all(k in _attribution_vocab for k in keys)
+
+    def _is_filler(phrase):
+        keys = _phrase_keys(phrase)
+        return bool(keys) and all(k in _filler for k in keys)
+
+    # الحذف المؤثر: ما ليس عبارة نسبة. والإضافة المؤثرة: ما ليس حشوًا ولا نسبة
+    meaningful_removed = [p for p in removed_words if not _is_attribution(p)]
+    attribution_added = [
+        p for p in added_words if _is_attribution(p) and not _is_filler(p)
+    ]
+    meaningful_added = [p for p in added_words if not _is_attribution(p)]
 
     # هل الجزء المحذوف من المصدر يحمل شرطًا أو استثناءً أو حكمًا؟
     def _omission_has_qualifier():
@@ -389,15 +477,30 @@ def verify(extracted_text, content_type, candidates):
             kind == "fake_hadith" and matched == "incorrect_hadith"
         )
 
-        same_text = result.same_text or is_fragment_of_source
+        # لا نتهم نصًا بالتحريف أو الاقتطاع إلا مع دليل رقمي قوي على أنه نفس النص:
+        # تطابق حرفي >= 0.5 أو تشابه معنى >= 0.8. وإلا فهو نص آخر قريب في الموضوع فقط.
+        strong_link = lexical_score >= 0.5 or semantic_score >= 0.8
+        same_text = (result.same_text and strong_link) or is_fragment_of_source
         # كلمة ناقصة من وسط النص = مقتطع، وكلمة مضافة أو مستبدلة = محرّف
         is_truncated = result.is_truncated or coverage < 0.8 or bool(removed_words)
-        is_altered = result.is_altered or ruling_changed or bool(added_words)
-        is_misattributed = result.attribution_mismatch or bool(wrong_books)
+        # رأي النموذج بالتحريف يُعتمد فقط إذا وجدت المقارنة فرقًا مؤثرًا، أو إذا
+        # لم تكن الفروق كلها عبارات نسبة (حذف "باتفاق المذاهب..." ليس تحريفًا)
+        only_attribution_diffs = not meaningful_removed and not meaningful_added and bool(
+            removed_words or added_words
+        )
+        # إذا كانت الفروق حذفًا فقط (بلا كلمة مضافة أو مغيّرة) فهو اقتطاع وليس تحريفًا،
+        # إلا إذا تغيّر الحكم (مثل حذف "لا")، وهذا تكشفه حماية النفي مستقلةً عن النموذج
+        only_removals = bool(removed_words) and not added_words
+        is_altered = ruling_changed or bool(meaningful_added) or (
+            result.is_altered and not only_attribution_diffs and not only_removals
+        )
+        is_misattributed = (
+            result.attribution_mismatch or bool(wrong_books) or bool(attribution_added)
+        )
         meaningful_omission = is_truncated and (
-            result.omission_changes_meaning
+            (result.omission_changes_meaning and not only_attribution_diffs)
             or _omission_has_qualifier()
-            or bool(removed_words)  # حذف من داخل النص المنقول لا يُعد اختصارًا بريئًا
+            or bool(meaningful_removed)  # حذف من داخل النص (غير عبارات النسبة) ليس اختصارًا بريئًا
         )
 
         issues = []
@@ -434,15 +537,40 @@ def verify(extracted_text, content_type, candidates):
 
         issue = issues[0] if issues else None
 
+        def _template_explanation():
+            parts = {
+                "altered": "تغيّرت بعض كلمات النص في الصورة عن المصدر.",
+                "misattributed": "نُسب النص في الصورة إلى غير من نُسب إليه في المصدر.",
+                "truncated": "حُذف جزء من النص الأصلي.",
+                "abridged": "النص مختصر من المصدر، والجزء المحذوف لا يغيّر الحكم.",
+            }
+            if status == "موثّق" and not issues:
+                return "النص مطابق للمصدر."
+            if status == "غير موثّق":
+                return "لم نجد تطابقًا موثوقًا لهذا النص في مصادرنا."
+            return " ".join(parts[i] for i in issues if i in parts)
+
+        def _clean_model_explanation(text):
+            text = (text or "").strip()
+            # أي حرف إنجليزي يعني مصطلحًا برمجيًا تسرّب: نستخدم الشرح الجاهز
+            if not text or re.search(r"[A-Za-z_]", text):
+                return _template_explanation()
+            return text.replace("المرشح", "المصدر").replace("المرشّح", "المصدر")
+
         def _final_explanation():
             if issue == "not_authentic":
                 return _fake_explanation()
-            text = result.explanation or ""
+            text = _clean_model_explanation(result.explanation)
             if status != "غير موثّق":
-                if removed_words:
-                    text += " الكلمات المحذوفة من النص الأصلي: «" + "، ".join(removed_words) + "»."
-                if added_words:
-                    text += " الكلمات المضافة أو المغيّرة في الصورة: «" + "، ".join(added_words) + "»."
+                if meaningful_removed:
+                    text += " المحذوف من النص الأصلي: «" + "»، «".join(meaningful_removed) + "»."
+                if meaningful_added:
+                    text += " المضاف أو المغيّر في الصورة: «" + "»، «".join(meaningful_added) + "»."
+                if attribution_added:
+                    text += (
+                        " أُضيفت في الصورة نسبة غير موجودة في المصدر: «"
+                        + "»، «".join(attribution_added) + "»."
+                    )
                 if wrong_books:
                     text += (
                         " نُسب في الصورة إلى: «" + "، ".join(wrong_books) + "»، "

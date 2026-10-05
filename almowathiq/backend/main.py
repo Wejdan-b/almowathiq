@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,7 +10,33 @@ from services.search import search
 from services.verifier import verify
 
 
+def warm_up():
+    """
+    يجهز قاعدة المعرفة وفهرس البحث بالمعنى عند تشغيل السيرفر،
+    حتى لا ينتظر أول مستخدم بناء المتجهات.
+    لا يمنع تشغيل السيرفر إذا فشل (يُبنى لاحقًا عند أول طلب).
+    """
+    try:
+        from services.search import _default_index, _semantic_index
+        index = _default_index()
+        for content_type in ("hadith", "fatwa"):
+            _semantic_index(content_type, index[content_type])
+        print(
+            "WARM-UP: ready "
+            f"({len(index['hadith'])} hadith entries, {len(index['fatwa'])} fatwa entries)"
+        )
+    except Exception as error:
+        print(f"WARM-UP skipped: {type(error).__name__}: {error}")
+
+
+@asynccontextmanager
+async def lifespan(app):
+    warm_up()
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="الموثّق الذكي API",
     description="Backend for Al-Mowathiq hackathon MVP",
     version="0.1.0",
@@ -243,6 +271,11 @@ async def verify_image(
 
         source = build_source(matched_candidate) if matched_candidate else None
 
+        # أدلة الفتوى (تُعرض فقط عند وجود تطابق)
+        evidence = None
+        if matched_candidate and matched_candidate.get("kind") == "fatwa":
+            evidence = (matched_candidate.get("record") or {}).get("evidence") or None
+
         # للحديث الذي لا يصح: نرسل أيضًا مصدر البديل الصحيح
         alternative_source = None
         if (
@@ -258,6 +291,7 @@ async def verify_image(
             content_type=content_type,
             status=status,
             issue=result.get("issue"),
+            issues=result.get("issues") or [],
             confidence=float(
                 result.get(
                     "confidence",
@@ -275,6 +309,7 @@ async def verify_image(
             ),
             source=source,
             alternative_source=alternative_source,
+            evidence=evidence,
         )
 
     except Exception as error:
