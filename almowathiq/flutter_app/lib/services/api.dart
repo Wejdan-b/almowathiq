@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -15,7 +15,7 @@ class ApiService {
     }
 
     try {
-      final uri = Uri.parse('http://localhost:8000/verify');
+      final uri = Uri.parse('https://almowathiq.onrender.com/verify');
 
       final request = http.MultipartRequest('POST', uri);
 
