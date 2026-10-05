@@ -146,5 +146,273 @@
       "grade_source": "صحيح الترغيب",
       "reference_url": "https://dorar.net/h/XPsPEJfa?osoul=1"
     }
+  },
+  {
+    "id": "H0006",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "اللهم إني لا أسألك رد القضاء، ولكني أسألك اللطف فيه",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "ليس بحديث، ومعناه غير صحيح",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url": "https://dorar.net/fake-hadith/48"
+    },
+
+    "correct_hadith": {
+      "text": "لا يَرُدُّ القَضَاءَ إلَّا الدُّعَاءُ ، و لَا يَزِيدُ فِي العُمُرِ إلَّا البِرُّ",
+      "narrator": "سلمان الفارسي",
+      "source": "صحيح الجامع",
+      "number": "7687",
+      "grade": "حسن",
+      "grader": "الألباني",
+      "grade_source": "صحيح الجامع",
+      "reference_url": "https://dorar.net/fake-hadith/48?alts=1"
+    }
+  }
+  ,
+  {
+    "id": "H0007",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "الناس على دين ملوكهم",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "لا أصل له",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url": "https://dorar.net/fake-hadith/50"
+    },
+
+    "correct_hadith": {
+      "text": "النَّاسُ تَبَعٌ لِقُرَيْشٍ فِي هَذَا الشَّأْنِ؛ مُسْلِمُهُمْ تَبَعٌ لِمُسْلِمِهِمْ، وَكَافِرُهُمْ تَبَعٌ لِكَافِرِهِمْ، وَالنَّاسُ مَعَادِنُ، خِيَارُهُمْ فِي الجَاهِلِيَّةِ خِيَارُهُمْ فِي الإِسْلَامِ إِذَا فَقِهُوا، تَجِدُونَ مِنْ خَيْرِ النَّاسِ أَشَدَّ النَّاسِ كَرَاهِيَةً لِهَذَا الشَّأْنِ حَتَّى يَقَعَ فِيهِ",
+       "narrator": "أبو هريرة",
+      "source": "صحيح البخاري",
+      "number": "3495",
+      "grade": "صحيح",
+      "grader": "البخاري",
+      "grade_source": "صحيح البخاري",
+      "reference_url": "https://dorar.net/fake-hadith/50?alts=1"
+    }
+  }
+  ,
+  {
+    "id": "H0008",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "ثلاثة لا يُستجاب دعاؤهم: آكِل الحرام، ومكثر الغِيبة، ومن كان في قلبه غل أو حسد للمسلمين",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "ليس له وجود في كتب الحديث",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url": "https://dorar.net/fake-hadith/70"
+    },
+
+    "correct_hadith": {
+      "text": "لا يَزَالُ يُسْتَجَابُ لِلْعَبْدِ ما لَمْ يَدْعُ بإثْمٍ أَوْ قَطِيعَةِ رَحِمٍ، ما لَمْ يَسْتَعْجِلْ، قيلَ: يا رَسولَ اللهِ، ما الاسْتِعْجَالُ؟ قالَ: يقولُ: قدْ دَعَوْتُ وَقَدْ دَعَوْتُ، فَلَمْ أَرَ يَسْتَجِيبُ لِي، فَيَسْتَحْسِرُ عِنْدَ ذلكَ وَيَدَعُ الدُّعَاءَ",
+      "narrator": "أبو هريرة",
+      "source": "صحيح مسلم",
+      "number": "2735",
+      "grade": "صحيح",
+      "grader": "مسلم",
+      "grade_source": "صحيح مسلم",
+      "reference_url": "https://dorar.net/fake-hadith/70?alts=1"
+    }
+  }
+  ,
+  {
+    "id": "H0009",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "حب الوطن من الإيمان",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "ليس بحديث",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url": "https://dorar.net/fake-hadith/74"
+    },
+
+    "correct_hadith": {
+      "text": "أنه سمع النبي صلى الله عليه وسلم وهو واقف بالحزورة في سوق مكة وهو يقول والله إنك لخير أرض الله وأحب أرض الله إلي ولولا أن أهلك أخرجوني منك ما خرجت",
+      "narrator": "عبدالله بن عدي بن الحمراء",
+      "source": "الاستذكار",
+      "number": "2/451",
+      "grade": "حسن صحيح ثابت ولم يأت من وجه صحيح شيء يعارضه",
+      "grader": "ابن عبدالبر",
+      "grade_source": "الاستذكار",
+      "reference_url": "https://dorar.net/fake-hadith/74?alts=1"
+    }
+  },
+  {
+    "id": "H0010",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "خير الأمور أوسطها",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "لا يصح",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url": "https://dorar.net/fake-hadith/76"
+    },
+
+    "correct_hadith": {
+      "text": "ما خُيِّرَ النَّبِيُّ صلَّى اللهُ عليه وسلَّم بينَ أمرينِ إلَّا اختارَ أيسرَهما ما لم يأثَمْ، فإذا كان الإثمُ كان أبعدَهما منه، واللهِ ما انتقَمَ لنفسِه في شيءٍ يُؤتَى إليه قطُّ، حتى تُنتهَكُ حُرُماتُ اللهِ، فيَنتقِمَ للهِ.",
+      "narrator": "عائشة أم المؤمنين",
+      "source": "صحيح البخاري",
+      "number": "6786",
+      "grade": "صحيح",
+      "grader": "البخاري",
+      "grade_source": "صحيح البخاري",
+      "reference_url": "https://dorar.net/fake-hadith/76?alts=1"
+    }
+  },
+
+  {
+    "id": "H0011",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "رحم الله امرأً اكتسب طيباً، وأنفق قصداً، وقدّم فضلاً ليوم فقره وحاجته",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "ضعيف",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url": "https://dorar.net/fake-hadith/78"
+    },
+
+    "correct_hadith": {
+      "text": "ما كَسَبَ الرَّجُلُ كَسْبًا أَطْيَبَ مِنْ عَمَلِ يَدِهِ ، وَمَا أَنْفَقَ الرَّجُلُ عَلَى نَفْسِهِ ، وَأَهْلِهِ ، وَوَلَدِهِ ، وَخَادِمِهِ ، فَهُوَ صَدَقَةٌ",
+      "narrator": "المقدام بن معدي كرب",
+      "source": "صحيح الجامع",
+      "number": "5660",
+      "grade": "صحيح",
+      "grader": "الألباني",
+      "grade_source": "صحيح الجامع",
+      "reference_url": "https://dorar.net/fake-hadith/78?alts=1"
+    }
+  }
+  ,
+  {
+    "id": "H0012",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "سيد القوم خادمهم",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "لا يصح",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url": "https://dorar.net/fake-hadith/79"
+    },
+
+    "correct_hadith": {
+      "text": "كَانَ رَسُولُ اللَّهِ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ يَتَخَلَّفُ عَنِ الْمَسِيرِ، فَيُزْجِي الضَّعِيفَ، وَيُرْدِفُ، وَيَدْعُو لَهُمْ.",
+      "narrator": "جابر بن عبدالله",
+      "source": "المستدرك على الصحيحين",
+      "number": "2577",
+      "grade": "صحيح على شرط مسلم",
+      "grader": "الحاكم",
+      "grade_source": "المستدرك على الصحيحين",
+      "reference_url": "https://dorar.net/fake-hadith/79?alts=1"
+    }
+  }
+  ,
+  {
+    "id": "H0012",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "سيد القوم خادمهم",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "لا يصح",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+       "reference_url": "https://dorar.net/fake-hadith/79"
+    },
+
+    "correct_hadith": {
+      "text": "كَانَ رَسُولُ اللَّهِ صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ يَتَخَلَّفُ عَنِ الْمَسِيرِ، فَيُزْجِي الضَّعِيفَ، وَيُرْدِفُ، وَيَدْعُو لَهُمْ.",
+      "narrator": "جابر بن عبدالله",
+      "source": "المستدرك على الصحيحين",
+      "number": "2577",
+      "grade": "صحيح على شرط مسلم",
+      "grader": "الحاكم",
+      "grade_source": "المستدرك على الصحيحين",
+      "reference_url": "https://dorar.net/fake-hadith/79?alts=1"
+    }
+  }
+,
+  {
+    "id": "H0014",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "صورة المرأة عورة",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "الحديث الصحيح هو: ((المرأة عورة))",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url": "https://dorar.net/fake-hadith/81"
+    },
+
+    "correct_hadith": {
+      "text": "المرأةُ عورةٌ ، فإذا خرجتْ استشرفَها الشيطانُ",
+      "narrator": "عبدالله بن مسعود",
+      "source": "سنن الترمذي",
+      "number": "1173",
+      "grade": "حسن غريب",
+      "grader": "الترمذي",
+      "grade_source": "سنن الترمذي",
+     "reference_url": "https://dorar.net/fake-hadith/81?alts=1"
+    }
+  }
+  ,
+  {
+    "id": "H0015",
+    "type": "hadith",
+
+    "incorrect_hadith": {
+      "text": "علي خير البشر، مَن أبى فقد كفر",
+      "narrator": "",
+      "source": "",
+      "number": "",
+      "grade": "كذب، وهو من وضع الرافضة",
+      "grader": "",
+      "grade_source": "الدرر السنية",
+      "reference_url": "https://dorar.net/fake-hadith/84"
+    },
+
+    "correct_hadith": {
+      "text": "قالَ عَلِيٌّ: وَالَّذِي فَلَقَ الحَبَّةَ، وَبَرَأَ النَّسَمَةَ، إنَّه لَعَهْدُ النَّبِيِّ الأُمِّيِّ صَلَّى اللَّهُ عليه وَسَلَّمَ إلَيَّ: أَنْ لا يُحِبَّنِي إلَّا مُؤْمِنٌ، وَلَا يُبْغِضَنِي إلَّا مُنَافِقٌ.",
+      "narrator": "علي بن أبي طالب",
+      "source": "صحيح مسلم",
+      "number": "78",
+      "grade": "صحيح",
+      "grader": "مسلم",
+      "grade_source": "صحيح مسلم",
+      "reference_url": "https://dorar.net/fake-hadith/84?alts=1"
+    }
   }
 ]
