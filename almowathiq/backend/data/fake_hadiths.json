@@ -6,12 +6,12 @@
     "incorrect_hadith": {
       "text": "النظافة من الإيمان",
 
-      "narrator": "",
+      "narrator": "ابن عثيمين",
       "source": "",
       "number": "",
-      "grade": "لا يصح",
+      "grade": "ضعيف لا يصح",
       "grader": "",
-      "grade_source": "الدرر السنية",
+      "grade_source": "الموسوعة الحديثة-الدرر السنية",
       "reference_url":"https://dorar.net/fake-hadith/17"
     },
 
@@ -67,10 +67,10 @@
     "incorrect_hadith": {
       "text": "خير الأسماء ما عُبِّد وحُمِّد",
 
-      "narrator": "",
-      "source": "",
-      "number": "",
-      "grade": "لا أصل له",
+      "narrator": "عبدالله بن عمر",
+      "source": "صحيح ابي داوود",
+      "number": "4949",
+      "grade": "لا أصل له وليس حديثا",
       "grader": "",
       "grade_source": "الدرر السنية",
 
@@ -98,10 +98,10 @@
     "incorrect_hadith": {
       "text": "إن الله لا ينظر إلى الصف الأعوج",
 
-      "narrator": "",
-      "source": "",
-      "number": "",
-      "grade": "ليس بحديث",
+      "narrator": "ابن عثيمين",
+      "source": "مجموع فتاوي ابن عثيمين",
+      "number": "56/13",
+      "grade": "لا يصح",
       "grader": "",
       "grade_source": "الدرر السنية",
 
@@ -180,9 +180,9 @@
 
     "incorrect_hadith": {
       "text": "الناس على دين ملوكهم",
-      "narrator": "",
-      "source": "",
-      "number": "",
+      "narrator": "السخاوي",
+      "source": "المقاصد الحسنة ",
+      "number": "517",
       "grade": "لا أصل له",
       "grader": "",
       "grade_source": "الدرر السنية",
@@ -234,9 +234,9 @@
 
     "incorrect_hadith": {
       "text": "حب الوطن من الإيمان",
-      "narrator": "",
-      "source": "",
-      "number": "",
+      "narrator": "ابن عثيمين",
+      "source": "شرح رياض الصالحين لابن عثيمين",
+      "number": "5/330",
       "grade": "ليس بحديث",
       "grader": "",
       "grade_source": "الدرر السنية",
@@ -287,9 +287,9 @@
 
     "incorrect_hadith": {
       "text": "رحم الله امرأً اكتسب طيباً، وأنفق قصداً، وقدّم فضلاً ليوم فقره وحاجته",
-      "narrator": "",
-      "source": "",
-      "number": "",
+      "narrator": "عائشه ام المؤمنين",
+      "source": "ضعيف الجامع",
+      "number": "3104",
       "grade": "ضعيف",
       "grader": "",
       "grade_source": "الدرر السنية",
@@ -314,9 +314,9 @@
 
     "incorrect_hadith": {
       "text": "سيد القوم خادمهم",
-      "narrator": "",
-      "source": "",
-      "number": "",
+      "narrator": "عقبة بن عامر",
+      "source": "المواهب اللدنية",
+      "number": "2/32",
       "grade": "لا يصح",
       "grader": "",
       "grade_source": "الدرر السنية",
