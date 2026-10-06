@@ -28,6 +28,10 @@ class VerificationResponse(BaseModel):
     # سبب "يحتاج تصحيح": truncated / altered / not_authentic، وإلا None
     issue: Optional[str] = None
 
+    # كل الأسباب مرتبة حسب الأهمية، مثل ["altered", "truncated"]
+    # وقد تكون ["abridged"] مع "موثّق": نص مختصر لا يغيّر الحكم
+    issues: List[str] = Field(default_factory=list)
+
     confidence: float = Field(
         ge=0.0,
         le=1.0
@@ -36,6 +40,14 @@ class VerificationResponse(BaseModel):
     extracted_text: str
 
     correct_text: Optional[str] = None
+
+    # للتلوين في الواجهة
+    added_words: List[str] = Field(default_factory=list)    # مضافة أو مغيّرة في الصورة (أحمر)
+    removed_words: List[str] = Field(default_factory=list)  # محذوفة من المصدر (أخضر)
+    source_excerpt: Optional[str] = None                    # الجملة المقابلة من المصدر
+
+    # أدلة الفتوى كما وردت في المصدر (للعرض فقط)
+    evidence: Optional[str] = None
 
     missing_context: List[str] = Field(
         default_factory=list

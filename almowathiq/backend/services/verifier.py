@@ -19,6 +19,7 @@ class GeminiVerificationResult(BaseModel):
     omission_changes_meaning: bool
     is_altered: bool
     attribution_mismatch: bool
+    same_meaning: bool
     confidence: float
     explanation: str
 
@@ -60,6 +61,13 @@ true إذا نسبت الصورة النص إلى قائل أو راوٍ أو ك
 - كتاب غير موجود في المصدر ولا في "وأخرجه أيضًا".
 - عالم غير موجود في قائمة العلماء (للفتاوى).
 false إذا لم تذكر الصورة أي نسبة، أو كانت النسبة مطابقة.
+اختلاف رقم الجزء أو الصفحة أو الطبعة لنفس الكتاب ونفس العالم لا يُعد مخالفة.
+
+same_meaning:
+true فقط إذا كان نص الصورة يحمل نفس الحكم ونفس المعنى تمامًا حتى لو اختلفت الألفاظ
+(بلا زيادة، ولا نقص، ولا شرط أو استثناء محذوف، ولا تغيير في درجة الحكم:
+"لا بأس" ليست "يستحب"، و"يسن" ليست "يجب").
+false إذا اختلف الحكم أو المعنى بأي شكل.
 
 omission_changes_meaning:
 true فقط إذا كان الجزء المحذوف من النص الأصلي يغيّر الحكم أو يقيّده أو يغيّر فهم النص
@@ -267,6 +275,17 @@ def verify(extracted_text, content_type, candidates):
 
     image_core = _image_core()
 
+    # تطابق جزء الفتوى أو الحديث فقط (بدون السؤال قبله أو سطر النسبة بعده)
+    # لا نعتمد عليه إلا إذا كان الجزء المطابق كبيرًا بما يكفي (وليس كلمتين عابرتين)
+    _core_words = len(normalize_arabic(image_core).split())
+    _src_words = max(1, len(normalize_arabic(candidate_text or "").split()))
+    core_reliable = _core_words >= 6 and _core_words >= 0.3 * _src_words
+    core_lexical = (
+        text_containment(image_core, candidate_text)
+        if candidate_text and core_reliable else 0.0
+    )
+    effective_lexical = max(lexical_score, core_lexical)
+
     # كلمات تقلب الحكم أو تغيّره: إذا اختلفت بين الصورة والمصدر فالنص محرّف
     # (التطابق الحرفي وحده لا يكشف حذف "لا" من "لا يحرم")
     def _ruling_words(text):
@@ -423,9 +442,60 @@ def verify(extracted_text, content_type, candidates):
     # نص الصورة موجود حرفيًا داخل المصدر، وطويل بما يكفي ليكون ذا معنى
     # => هو نفس النص (كامل أو مقتطع) مهما قال النموذج
     is_fragment_of_source = (
-        lexical_score >= 0.85
+        effective_lexical >= 0.85
         and len(normalize_arabic(extracted_text).replace(" ", "")) >= 20
     )
+
+    # فئة الحكم: "لا يحرم" و"يجوز" و"لا بأس" كلها إباحة. نقارن الفئة لا الكلمة
+    def _ruling_classes(text):
+        words = normalize_arabic(text).split()
+        negs = {"لا", "ليس", "ليست", "لم", "لن", "غير"}
+        classes = set()
+        for i, w in enumerate(words):
+            neg = i > 0 and words[i - 1] in negs
+            if w in ("يحرم", "تحرم", "حرام", "محرم"):
+                classes.add("permitted" if neg else "forbidden")
+            elif w in ("يجوز", "تجوز", "جائز"):
+                classes.add("forbidden" if neg else "permitted")
+            elif w in ("باس",):
+                if neg:
+                    classes.add("permitted")
+            elif w in ("مباح", "يباح", "حلال"):
+                classes.add("permitted")
+            elif w in ("يجب", "تجب", "واجب", "يلزم"):
+                classes.add("not_obligatory" if neg else "obligatory")
+            elif w in ("يسن", "يستحب", "سنه", "مستحب"):
+                classes.add("not_recommended" if neg else "recommended")
+            elif w in ("يكره", "مكروه"):
+                classes.add("not_disliked" if neg else "disliked")
+            elif w in ("يشترط", "تشترط", "شرط"):
+                classes.add("not_required" if neg else "required")
+        return classes
+
+    same_ruling_class = _ruling_classes(image_core) == _ruling_classes(candidate_text)
+
+    # الجملة (أو الجمل) من المصدر التي تقابل نص الصورة، لعرضها بدل النص كاملًا
+    def _source_excerpt():
+        src_raw = (candidate_text or "").split()
+        pairs = [(ri, n) for ri, raw in enumerate(src_raw) for n in normalize_arabic(raw).split()]
+        img_keys = [_word_key(n) for raw in (extracted_text or "").split() for n in normalize_arabic(raw).split()]
+        blocks = [
+            b for b in SequenceMatcher(
+                None, [_word_key(n) for _, n in pairs], img_keys, autojunk=False
+            ).get_matching_blocks() if b.size
+        ]
+        if not blocks:
+            return None
+        first = pairs[blocks[0].a][0]
+        last = pairs[blocks[-1].a + blocks[-1].size - 1][0]
+        enders = (".", "؟", "?", "!", "؛")
+        start, end = first, last
+        while start > 0 and not src_raw[start - 1].endswith(enders):
+            start -= 1
+        while end < len(src_raw) - 1 and not src_raw[end].endswith(enders):
+            end += 1
+        excerpt = " ".join(src_raw[start:end + 1])
+        return excerpt if len(excerpt) < len(" ".join(src_raw)) else None
 
     try:
 
@@ -479,7 +549,7 @@ def verify(extracted_text, content_type, candidates):
 
         # لا نتهم نصًا بالتحريف أو الاقتطاع إلا مع دليل رقمي قوي على أنه نفس النص:
         # تطابق حرفي >= 0.5 أو تشابه معنى >= 0.8. وإلا فهو نص آخر قريب في الموضوع فقط.
-        strong_link = lexical_score >= 0.5 or semantic_score >= 0.8
+        strong_link = effective_lexical >= 0.5 or semantic_score >= 0.8
         same_text = (result.same_text and strong_link) or is_fragment_of_source
         # كلمة ناقصة من وسط النص = مقتطع، وكلمة مضافة أو مستبدلة = محرّف
         is_truncated = result.is_truncated or coverage < 0.8 or bool(removed_words)
@@ -503,9 +573,28 @@ def verify(extracted_text, content_type, candidates):
             or bool(meaningful_removed)  # حذف من داخل النص (غير عبارات النسبة) ليس اختصارًا بريئًا
         )
 
+        # منقول بالمعنى: ألفاظ مختلفة ونفس الحكم تمامًا، بشروط صارمة كلها معًا
+        paraphrase_min = 0.9 if kind in ("hadith", "fake_hadith") else 0.85
+        paraphrase_ok = (
+            # منقول بالمعنى = ألفاظ استُبدلت. أما الحذف وحده فحالته: مقتطع أو مختصر
+            bool(meaningful_added)
+            and result.same_meaning
+            and not is_fake_text
+            and (semantic_score >= paraphrase_min or core_lexical >= 0.6)
+            and same_ruling_class
+            and not negation_flipped
+            and not is_misattributed
+            and not result.omission_changes_meaning
+            and not _omission_has_qualifier()
+        )
+
         issues = []
 
-        if not same_text:
+        if paraphrase_ok and (is_altered or not same_text or not result.is_match):
+            status = "موثّق"
+            issues = ["paraphrased"]
+
+        elif not same_text:
             # نص آخر مختلف (حتى لو قريب في الموضوع): لا نتهمه بالتحريف
             status = "غير موثّق"
 
@@ -527,7 +616,7 @@ def verify(extracted_text, content_type, candidates):
             status = "يحتاج تصحيح"
             issues = ["truncated"]
 
-        elif (result.is_match or is_fragment_of_source) and lexical_score >= 0.85:
+        elif (result.is_match or is_fragment_of_source) and effective_lexical >= 0.85:
             status = "موثّق"
             # مختصر بدون تغيير في الحكم: موثّق مع ملاحظة
             issues = ["abridged"] if is_truncated else []
@@ -543,6 +632,7 @@ def verify(extracted_text, content_type, candidates):
                 "misattributed": "نُسب النص في الصورة إلى غير من نُسب إليه في المصدر.",
                 "truncated": "حُذف جزء من النص الأصلي.",
                 "abridged": "النص مختصر من المصدر، والجزء المحذوف لا يغيّر الحكم.",
+                "paraphrased": "النص في الصورة منقول بالمعنى، والحكم مطابق للمصدر.",
             }
             if status == "موثّق" and not issues:
                 return "النص مطابق للمصدر."
@@ -560,6 +650,8 @@ def verify(extracted_text, content_type, candidates):
         def _final_explanation():
             if issue == "not_authentic":
                 return _fake_explanation()
+            if issue == "paraphrased":
+                return _template_explanation()
             text = _clean_model_explanation(result.explanation)
             if status != "غير موثّق":
                 if meaningful_removed:
@@ -586,6 +678,7 @@ def verify(extracted_text, content_type, candidates):
         else:
             correct_text = candidate_text
 
+        show_diff = status != "غير موثّق" and issue != "not_authentic"
         return {
             "status": status,
             "issue": issue,
@@ -594,6 +687,12 @@ def verify(extracted_text, content_type, candidates):
             "matched_id": matched_id,
             "correct_text": correct_text,
             "explanation": _final_explanation(),
+            # للتلوين في الواجهة: الأحمر في نص الصورة، والأخضر في نص المصدر
+            "added_words": meaningful_added + attribution_added if show_diff else [],
+            "removed_words": meaningful_removed if show_diff else [],
+            "source_excerpt": (
+                _source_excerpt() if status != "غير موثّق" and not is_fake_text else None
+            ),
         }
 
     except Exception as error:
