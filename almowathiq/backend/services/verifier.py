@@ -147,11 +147,19 @@ def verify(extracted_text, content_type, candidates):
     semantic_score = candidate.get("semantic_score")
     semantic_score = float(semantic_score) if semantic_score is not None else 0.0
 
+    # هل الحديث المكذوب نفسه موجود كاملًا داخل الصورة؟ (مهما كان حوله من كلام زائد)
+    _fake_text = ""
+    if kind == "fake_hadith":
+        _fake = record.get("incorrect_hadith") or {}
+        _fake_text = _fake.get("text", "") if isinstance(_fake, dict) else str(_fake or "")
+    fake_inside_image = bool(_fake_text) and text_containment(_fake_text, extracted_text) >= 0.85
+
     if (
         kind == "fake_hadith"
         and matched == "incorrect_hadith"
         and (
             lexical_score >= 0.85
+            or fake_inside_image
             or (lexical_score >= 0.6 and semantic_score >= 0.95)
         )
     ):
@@ -249,6 +257,51 @@ def verify(extracted_text, content_type, candidates):
 
     wrong_books = _book_mismatch()
 
+    # فحص رياضي للراوي: الاسم المذكور قبل نص الحديث في الصورة ("عن أبي هريرة...")
+    def _narrator_mismatch():
+        narrator = str(hadith_meta.get("narrator", "")) if hadith_meta else ""
+        if not narrator or not candidate_text:
+            return None
+        generic = {
+            "عن", "قال", "قالت", "روي", "رواه", "ان", "انه", "انها", "ابو", "ابي", "ابا", "ام",
+            "بن", "ابن", "بنت", "رضي", "الله", "عنه", "عنها", "عنهما", "عنهم", "النبي",
+            "رسول", "صلي", "عليه", "وسلم", "سلم", "و", "حدثنا", "اخبرنا", "سمعت", "يقول",
+        }
+        img_pairs = _tokens(extracted_text)
+        src_keys = [_word_key(n) for n in normalize_arabic(candidate_text).split()]
+        blocks = [
+            b for b in SequenceMatcher(
+                None, src_keys, [_word_key(n) for _, n in img_pairs], autojunk=False
+            ).get_matching_blocks() if b.size
+        ]
+        if not blocks:
+            return None
+        prefix = img_pairs[: blocks[0].b]
+        # نبحث عن اسم بعد "عن" أو "قال/قالت" في المقدمة
+        trigger = next(
+            (i for i, (_, n) in enumerate(prefix) if n in ("عن", "قال", "قالت", "روي")),
+            None,
+        )
+        if trigger is None:
+            return None
+        generic_keys = {_word_key(g) for g in generic}
+        name_pairs = [
+            (d, n) for d, n in prefix[trigger + 1: trigger + 6]
+            if _word_key(n) not in generic_keys
+        ]
+        if not name_pairs:
+            return None
+        known = (
+            {_word_key(n) for n in normalize_arabic(narrator).split()} | set(src_keys)
+        ) - generic_keys
+        if any(_word_key(n) in known for _, n in name_pairs):
+            return None
+        # الاسم كما في الصورة: من بعد "عن" حتى آخر كلمة من الاسم (مثل "أبي هريرة")
+        window = prefix[trigger + 1: trigger + 6]
+        last = max(i for i, (_, n) in enumerate(window) if _word_key(n) not in generic_keys)
+        return " ".join(d for d, _ in window[: last + 1]).strip()
+
+
     # الجزء من الصورة الذي يقابل نص المصدر (يستبعد السؤال أو العنوان قبله وما بعده)
     def _image_core():
         src_w = normalize_arabic(candidate_text).split()
@@ -279,7 +332,11 @@ def verify(extracted_text, content_type, candidates):
     # لا نعتمد عليه إلا إذا كان الجزء المطابق كبيرًا بما يكفي (وليس كلمتين عابرتين)
     _core_words = len(normalize_arabic(image_core).split())
     _src_words = max(1, len(normalize_arabic(candidate_text or "").split()))
-    core_reliable = _core_words >= 6 and _core_words >= 0.3 * _src_words
+    core_reliable = (
+        (_core_words >= 6 and _core_words >= 0.3 * _src_words)
+        # نص قصير (مثل حديث من 3 كلمات) موجود كاملًا تقريبًا
+        or (_src_words >= 2 and _core_words >= 0.8 * _src_words)
+    )
     core_lexical = (
         text_containment(image_core, candidate_text)
         if candidate_text and core_reliable else 0.0
@@ -388,6 +445,9 @@ def verify(extracted_text, content_type, candidates):
         return [r for r in removed if r], [a for a in added if a]
 
     removed_words, added_words = _inner_diff()
+
+    # فحص الراوي بعد تعريف أدوات المقارنة
+    wrong_narrator = _narrator_mismatch()
 
     # كلمات "النسبة": بيان من قال بالحكم (مذاهب، علماء، إجماع...) وليست الحكم نفسه
     _attribution_vocab = {
@@ -566,6 +626,7 @@ def verify(extracted_text, content_type, candidates):
         )
         is_misattributed = (
             result.attribution_mismatch or bool(wrong_books) or bool(attribution_added)
+            or bool(wrong_narrator)
         )
         meaningful_omission = is_truncated and (
             (result.omission_changes_meaning and not only_attribution_diffs)
@@ -663,11 +724,23 @@ def verify(extracted_text, content_type, candidates):
                         " أُضيفت في الصورة نسبة غير موجودة في المصدر: «"
                         + "»، «".join(attribution_added) + "»."
                     )
+                if "misattributed" in issues and hadith_meta and hadith_meta.get("narrator"):
+                    if wrong_narrator:
+                        text += f" الراوي في الصورة: «{wrong_narrator}»،"
+                    text += f" والراوي في المصدر: {hadith_meta.get('narrator')}."
                 if wrong_books:
                     text += (
                         " نُسب في الصورة إلى: «" + "، ".join(wrong_books) + "»، "
                         "وهو غير مذكور في مصادر هذا الحديث عندنا."
                     )
+                    # المصدر الصحيح من بيانات السجل نفسه
+                    src_name = str(hadith_meta.get("source") or "")
+                    src_num = str(hadith_meta.get("number") or "")
+                    if src_name:
+                        text += f" والحديث في المصدر: {src_name}" + (f" ({src_num})" if src_num else "")
+                        if also_in:
+                            text += "، وأخرجه أيضًا: " + "، ".join(str(x) for x in also_in)
+                        text += "."
             return text.strip()
 
         if status == "غير موثّق":
