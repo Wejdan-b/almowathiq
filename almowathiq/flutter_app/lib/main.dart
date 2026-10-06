@@ -205,7 +205,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _verifyImage() async {
     if (_selectedImage == null) {
-      _showMessage('اختر صورة الفتوى أولًا');
+      _showMessage('اختر صورة أولًا');
       return;
     }
 
@@ -423,7 +423,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const Spacer(),
                 const Text(
-                  'هل هذه الفتوى',
+                  'هل هذا الحديث أو الفتوى',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 28,
@@ -432,7 +432,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 const Text(
-                  'منسوبة إلى مصدرها فعلًا؟',
+                  'منسوب إلى مصدره فعلًا؟',
                   style: TextStyle(
                     color: lightGold,
                     fontSize: 28,
@@ -442,7 +442,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'ارفع صورة الفتوى ودع الموثّق الذكي يساعدك في التحقق منها.',
+                  'ارفع صورة الحديث أو الفتوى، ودع الموثّق الذكي يتحقق منها من مصادر موثوقة.',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.75),
                     fontSize: 14,
@@ -483,7 +483,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
-              'التحقق من المعلومة قبل نشرها يساعد على الحد من تداول الفتاوى غير الموثوقة.',
+              'التحقق من المعلومة قبل نشرها يساعد على الحد من تداول الأحاديث والفتاوى غير الموثوقة.',
               style: TextStyle(
                 color: darkText,
                 fontSize: 13,
@@ -509,7 +509,7 @@ class _HomePageState extends State<HomePage> {
                 : () => _pickImage(ImageSource.gallery),
             icon: const Icon(Icons.image_outlined, size: 22),
             label: const Text(
-              'رفع صورة الفتوى',
+              'رفع صورة حديث أو فتوى',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             style: ElevatedButton.styleFrom(
@@ -695,6 +695,8 @@ class ResultPage extends StatelessWidget {
 
     final String explanation = result['explanation']?.toString() ?? '';
 
+    final String evidence = result['evidence']?.toString() ?? '';
+
     // سبب "يحتاج تصحيح": truncated / altered / not_authentic
     final String issue = result['issue']?.toString() ?? '';
 
@@ -705,6 +707,21 @@ class ResultPage extends StatelessWidget {
     final String correctTextTitle = issue == 'not_authentic'
         ? 'البديل الصحيح'
         : 'النص كما ورد في المصدر';
+
+    List<String> _words(dynamic list) => list is List
+        ? list
+              .expand((e) => e.toString().split(RegExp(r'\s+')))
+              .map(_cleanWord)
+              .where((w) => w.isNotEmpty)
+              .toList()
+        : <String>[];
+
+    // الكلمات المضافة أو المغيّرة في الصورة (أحمر) والمحذوفة من المصدر (أخضر)
+    final Set<String> addedWords = _words(result['added_words']).toSet();
+    final Set<String> removedWords = _words(result['removed_words']).toSet();
+
+    // الجملة المقابلة من المصدر (بدل النص كاملًا)
+    final String sourceExcerpt = result['source_excerpt']?.toString() ?? '';
 
     final dynamic source = result['source'];
 
@@ -738,14 +755,36 @@ class ResultPage extends StatelessWidget {
                   title: 'النص المستخرج',
                   text: extractedText,
                   icon: Icons.text_snippet_outlined,
+                  highlight: addedWords,
+                  highlightColor: const Color(0xFFC0392B),
                 ),
               ],
-              if (correctText.isNotEmpty) ...[
+              if (correctText.isNotEmpty && sourceExcerpt.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                _buildTextSection(
+                  title: 'النص الصحيح من المصدر',
+                  text: sourceExcerpt,
+                  icon: Icons.fact_check_outlined,
+                  highlight: removedWords,
+                  highlightColor: const Color(0xFF1E7B4F),
+                  fullText: correctText,
+                ),
+              ] else if (correctText.isNotEmpty) ...[
                 const SizedBox(height: 18),
                 _buildTextSection(
                   title: correctTextTitle,
                   text: correctText,
                   icon: Icons.fact_check_outlined,
+                  highlight: removedWords,
+                  highlightColor: const Color(0xFF1E7B4F),
+                ),
+              ],
+              if (evidence.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                _buildTextSection(
+                  title: 'الأدلة',
+                  text: evidence,
+                  icon: Icons.menu_book_outlined,
                 ),
               ],
               if (explanation.isNotEmpty) ...[
@@ -886,7 +925,11 @@ class ResultPage extends StatelessWidget {
     late Color background;
 
     if (status == 'موثّق') {
-      if (issue == 'abridged') {
+      if (issue == 'paraphrased') {
+        title = 'موثّق: منقول بالمعنى';
+        description =
+            'النص في الصورة منقول بالمعنى، والحكم مطابق للمصدر. وهذا لفظ المصدر كما ورد.';
+      } else if (issue == 'abridged') {
         title = 'موثّق: النص مختصر من المصدر';
         description =
             'النص الظاهر في الصورة جزء من المصدر، والجزء المحذوف لا يغيّر الحكم. انظر النص كاملًا كما ورد في المصدر.';
@@ -985,10 +1028,37 @@ class ResultPage extends StatelessWidget {
     );
   }
 
+  static final RegExp _punct = RegExp('[،,.؛;:!؟?«»"\'()\\[\\]{}\\-ـ]');
+
+  static String _cleanWord(String w) => w.replaceAll(_punct, '').trim();
+
+  Widget _highlightedText(String text, Set<String> highlight, Color color) {
+    const base = TextStyle(color: darkText, fontSize: 14, height: 1.8);
+    if (highlight.isEmpty) return Text(text, style: base);
+    final spans = <TextSpan>[];
+    for (final part in text.split(RegExp(r'(?<=\s)|(?=\s)'))) {
+      final bool hit = highlight.contains(_cleanWord(part));
+      spans.add(TextSpan(
+        text: part,
+        style: hit
+            ? TextStyle(
+                color: color,
+                fontWeight: FontWeight.w800,
+                backgroundColor: color.withOpacity(0.10),
+              )
+            : null,
+      ));
+    }
+    return Text.rich(TextSpan(children: spans), style: base);
+  }
+
   Widget _buildTextSection({
     required String title,
     required String text,
     required IconData icon,
+    Set<String> highlight = const {},
+    Color highlightColor = darkText,
+    String fullText = '',
   }) {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1015,10 +1085,35 @@ class ResultPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 13),
-          Text(
-            text,
-            style: const TextStyle(color: darkText, fontSize: 14, height: 1.8),
-          ),
+          _highlightedText(text, highlight, highlightColor),
+          if (fullText.isNotEmpty && fullText != text)
+            Theme(
+              data: ThemeData(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text(
+                  'عرض النص كاملًا كما ورد في المصدر',
+                  style: TextStyle(
+                    color: deepGreen,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                children: [
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      fullText,
+                      style: const TextStyle(
+                        color: mutedText,
+                        fontSize: 13,
+                        height: 1.8,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

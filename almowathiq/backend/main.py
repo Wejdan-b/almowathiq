@@ -292,6 +292,9 @@ async def verify_image(
             status=status,
             issue=result.get("issue"),
             issues=result.get("issues") or [],
+            added_words=result.get("added_words") or [],
+            removed_words=result.get("removed_words") or [],
+            source_excerpt=result.get("source_excerpt"),
             confidence=float(
                 result.get(
                     "confidence",
