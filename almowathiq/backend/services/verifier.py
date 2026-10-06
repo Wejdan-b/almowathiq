@@ -449,6 +449,48 @@ def verify(extracted_text, content_type, candidates):
     # فحص الراوي بعد تعريف أدوات المقارنة
     wrong_narrator = _narrator_mismatch()
 
+    # فحص رياضي للعالم: اسم عالم معروف حول نص الفتوى في الصورة، وليس من علماء المصدر
+    def _scholar_mismatch():
+        if kind != "fatwa" or not candidate_text:
+            return []
+        famous = {
+            _word_key(normalize_arabic(n))
+            for n in (
+                "باز", "عثيمين", "الالباني", "الفوزان", "فوزان", "تيمية", "القيم", "النووي",
+                "حزم", "قدامة", "البهوتي", "السعدي", "الشنقيطي", "جبرين", "المنجد",
+                "القرضاوي", "الشعراوي", "الحويني", "العريفي", "الطنطاوي", "اللحيدان",
+            )
+        }
+        known = set()
+        for ref in (record.get("scholars") or []):
+            name = ref.get("name", "") if isinstance(ref, dict) else str(ref)
+            known |= {_word_key(n) for n in normalize_arabic(name).split()}
+        known |= {_word_key(n) for n in normalize_arabic(str(record.get("mufti") or "")).split()}
+        known |= {_word_key(n) for n in normalize_arabic(str(record.get("source") or "")).split()}
+
+        img = _tokens(extracted_text)
+        src_keys = [_word_key(n) for n in normalize_arabic(candidate_text).split()]
+        blocks = [
+            b for b in SequenceMatcher(
+                None, src_keys, [_word_key(n) for _, n in img], autojunk=False
+            ).get_matching_blocks() if b.size
+        ]
+        if not blocks:
+            return []
+        start, end = blocks[0].b, blocks[-1].b + blocks[-1].size
+        outside = list(enumerate(img[:start])) + [(i + end, p) for i, p in enumerate(img[end:])]
+        wrong = []
+        for i, (display, norm) in outside:
+            k = _word_key(norm)
+            if k in famous and k not in known:
+                prev = img[i - 1][1] if i > 0 else ""
+                phrase = (img[i - 1][0] + " " + display) if prev in ("ابن", "بن") else display
+                if phrase not in wrong:
+                    wrong.append(phrase)
+        return wrong
+
+    wrong_scholars = _scholar_mismatch()
+
     # كلمات "النسبة": بيان من قال بالحكم (مذاهب، علماء، إجماع...) وليست الحكم نفسه
     _attribution_vocab = {
         "نص", "عليه", "الحنفيه", "المالكيه", "الشافعيه", "الحنابله", "مذهب", "المذاهب",
@@ -627,6 +669,7 @@ def verify(extracted_text, content_type, candidates):
         is_misattributed = (
             result.attribution_mismatch or bool(wrong_books) or bool(attribution_added)
             or bool(wrong_narrator)
+            or bool(wrong_scholars)
         )
         meaningful_omission = is_truncated and (
             (result.omission_changes_meaning and not only_attribution_diffs)
@@ -728,6 +771,16 @@ def verify(extracted_text, content_type, candidates):
                     if wrong_narrator:
                         text += f" الراوي في الصورة: «{wrong_narrator}»،"
                     text += f" والراوي في المصدر: {hadith_meta.get('narrator')}."
+                if wrong_scholars:
+                    names = []
+                    for ref in (record.get("scholars") or []):
+                        n = ref.get("name", "") if isinstance(ref, dict) else str(ref)
+                        if n and n not in names:
+                            names.append(n)
+                    text += " نُسبت الفتوى في الصورة إلى: «" + "»، «".join(wrong_scholars) + "»"
+                    if names:
+                        text += "، والفتوى في المصدر منسوبة إلى: " + "، ".join(names[:5])
+                    text += "."
                 if wrong_books:
                     text += (
                         " نُسب في الصورة إلى: «" + "، ".join(wrong_books) + "»، "
